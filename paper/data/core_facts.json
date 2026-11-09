@@ -1,0 +1,210 @@
+﻿{
+ "source": "ExoBEM-Core M1, https://github.com/TensorBuildLab/ExoBEM-Core, branch exobem-core, commits de2a82105 and f17b0171d; planetary/VERIFICATION.md, planetary/DESIGN.md, planetary/audit/*.md",
+ "base_version": "26.2.0",
+ "source_lines_cc_hh": 720886,
+ "diff": {
+  "files": 17,
+  "insertions": 1609,
+  "deletions": 12,
+  "new_module_lines": 1277,
+  "idd_lines": 150,
+  "hook_lines_existing_files": 182,
+  "existing_files_touched": 14
+ },
+ "audit": {
+  "areas": [
+   {
+    "key": "01_time_weather",
+    "label": "Time base, calendar, weather input, sizing",
+    "P0": 18,
+    "P1": 11,
+    "P2": 10
+   },
+   {
+    "key": "02_solar_sky",
+    "label": "Solar geometry, sky and ground radiation",
+    "P0": 13,
+    "P1": 13,
+    "P2": 9
+   },
+   {
+    "key": "03_air_pressure_gravity",
+    "label": "Psychrometrics, pressure, gravity, airflow",
+    "P0": 22,
+    "P1": 14,
+    "P2": 16
+   },
+   {
+    "key": "04_surface_heat_balance",
+    "label": "Surface heat balance, conduction, convection, ground",
+    "P0": 19,
+    "P1": 15,
+    "P2": 12
+   },
+   {
+    "key": "05_windows",
+    "label": "Windows and fenestration",
+    "P0": 0,
+    "P1": 15,
+    "P2": 14
+   },
+   {
+    "key": "06_hvac_plant_power",
+    "label": "HVAC, plant, heat rejection, power",
+    "P0": 4,
+    "P1": 29,
+    "P2": 18
+   }
+  ],
+  "note": "Priority counted as the highest priority given in each finding row. P0 = needed for a first single-zone opaque habitat with ideal loads under the planetary-hour plan; P1 = windows, HVAC, plant, PV, outputs; P2 = rarely used, fence off."
+ },
+ "audit_facts": {
+  "rSecsInHour_uses": 118,
+  "rSecsInHour_physical": 65,
+  "rSecsInHour_units": 52,
+  "literal_3600_lines": 59,
+  "literal_3600_physical": 18,
+  "TimeStepZoneSec_uses": 330,
+  "TimeStepSysSec_uses": 780,
+  "timestep_setters": 4,
+  "OutBaroPress_uses": 509,
+  "OutBaroPress_files": 75,
+  "OutBaroPress_cabin": 350,
+  "OutBaroPress_outdoor": 133,
+  "OutBaroPress_hvac_uses": 354,
+  "StdRhoAir_uses": 335,
+  "StdRhoAir_files": 63,
+  "ground_lw_equals_air_sites": 10,
+  "window_solvers": 4,
+  "cabin_psychrometric_error_pct": 0.4,
+  "tarp_overestimate_moon": 2.3
+ },
+ "earth_regression": {
+  "weather": "Chicago O'Hare TMY3",
+  "files": [
+   [
+    "1ZoneUncontrolled",
+    "CTF, TARP/DOE-2 convection, solar",
+    "identical"
+   ],
+   [
+    "1ZoneUncontrolledFourAlgorithms",
+    "CTF, CondFD, EMPD, HAMT mix",
+    "identical"
+   ],
+   [
+    "1ZoneUncontrolledCondFDWithVariableKat24C",
+    "CondFD with k(T)",
+    "identical"
+   ],
+   [
+    "1ZoneUncontrolled_FCfactor_Slab_UGWall",
+    "ground contact, F/C factor",
+    "identical"
+   ],
+   [
+    "1ZoneUncontrolled_win_1",
+    "windows",
+    "identical"
+   ],
+   [
+    "5ZoneAirCooled",
+    "VAV, DX, sizing, design days",
+    "identical"
+   ],
+   [
+    "5ZoneAirCooledConvCoef",
+    "user convection coefficients",
+    "identical"
+   ],
+   [
+    "5ZoneWaterSystems",
+    "plant, water use",
+    "identical"
+   ],
+   [
+    "ShopWithPVandBattery",
+    "PV, electric storage",
+    "identical"
+   ],
+   [
+    "RefBldgSmallOfficeNew2004_Chicago",
+    "DOE reference building",
+    "identical"
+   ],
+   [
+    "EMPD5ZoneWaterCooled_HighRHControl",
+    "moisture (EMPD), chillers",
+    "identical"
+   ],
+   [
+    "ZoneCoupledKivaConvection",
+    "Kiva foundation",
+    "identical"
+   ],
+   [
+    "DaylightingDeviceShelf",
+    "daylighting",
+    "identical"
+   ],
+   [
+    "SolarCollectorFlatPlateWater",
+    "solar thermal collector",
+    "identical"
+   ]
+  ],
+  "excluded": "HAMT_HourlyProfileReport fails with this weather file in both the unmodified and the modified build"
+ },
+ "unit_tests": {
+  "tests": 2379,
+  "suites": 33,
+  "passed": 2379,
+  "failed": 0,
+  "minutes": 3.1
+ },
+ "run_time_s": {
+  "moon": 68,
+  "moon_days": 59,
+  "mars": 3,
+  "mars_days": 31,
+  "steps_per_hour": 20,
+  "python_moon": 197,
+  "python_mars": 112,
+  "note": "Same Windows 11 computer, single thread; Python ExoBEM v0.1 times from planetary/cases/python_ref.log"
+ },
+ "startup_ablation": {
+  "note": "Sensible cooling over the comparison window, ExoBEM-Core relative to Python ExoBEM, for successive start-up treatments of the CondFD walls",
+  "rows": [
+   [
+    "Walls start at 23 C (EnergyPlus default)",
+    null,
+    "+32"
+   ],
+   [
+    "Steady profile, constant conductivity",
+    "-1",
+    "-2.5"
+   ],
+   [
+    "Steady profile with k(T) and post-warm-up correction (M1)",
+    "-0.01",
+    "-0.7"
+   ]
+  ]
+ },
+ "habitat": {
+  "radius_m": 3.0,
+  "length_m": 10.0,
+  "facets": 16,
+  "cover_m": 1.0,
+  "gains_W": 3240.4,
+  "cabin_kPa": 70.3,
+  "o2": 0.265,
+  "setpoints_C": [
+   18,
+   27
+  ],
+  "timestep_min": 3
+ },
+ "exobem_python_lines": 2469
+}

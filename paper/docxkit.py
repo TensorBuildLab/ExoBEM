@@ -31,7 +31,11 @@ def _omml(latex: str):
 class Manuscript:
     FONT = "Times New Roman"
 
-    def __init__(self):
+    def __init__(self, labels=None):
+        """labels: label -> number from a first build pass, so that text can refer forward (@fig:x, @tab:x, @sec:x, @eq:x)."""
+        self.known = dict(labels or {})
+        self.labels = {}
+        self.unresolved = set()
         self.doc = Document()
         sec = self.doc.sections[0]
         sec.page_width, sec.page_height = Cm(21.0), Cm(29.7)
@@ -103,6 +107,7 @@ class Manuscript:
 
     def _runs(self, p, text, size=None, italic_all=False):
         """Markup: **bold**, *italic*, ^{sup}, _{sub}, [@key1;key2] citations, $latex$ inline math."""
+        text = self._xref(text)
         pattern = re.compile(r"(\*\*.+?\*\*|\*.+?\*|\^\{.+?\}|_\{.+?\}|\[@.+?\]|\$.+?\$)")
         for tok in pattern.split(text):
             if not tok:
@@ -128,6 +133,25 @@ class Manuscript:
                 r.italic = True
         return p
 
+    # @fig:name, or @[fig:name] when a letter follows directly (e.g. "Fig. @[fig:name]a"; safe inside f-strings)
+    _XREF = re.compile(r"@\[(fig|tab|sec|eq):([A-Za-z0-9_]+)\]|@(fig|tab|sec|eq):([A-Za-z0-9_]+)")
+
+    def _xref(self, text):
+        def sub(mo):
+            kind, name = (mo.group(1), mo.group(2)) if mo.group(1) else (mo.group(3), mo.group(4))
+            key = f"{kind}:{name}"
+            if key not in self.known and key not in self.labels:
+                self.unresolved.add(key)
+            return str(self.known.get(key, self.labels.get(key, "??")))
+        return self._XREF.sub(sub, text)
+
+    def _label(self, kind, label, value):
+        if label:
+            key = f"{kind}:{label}"
+            if key in self.labels:
+                raise KeyError(f"duplicate label {key}")
+            self.labels[key] = value
+
     def para(self, text, align="justify", size=None, italic=False, space_after=None, indent=True, style=None):
         p = self.doc.add_paragraph(style=style)
         p.alignment = {"justify": WD_ALIGN_PARAGRAPH.JUSTIFY, "center": WD_ALIGN_PARAGRAPH.CENTER,
@@ -144,17 +168,19 @@ class Manuscript:
             p.paragraph_format.space_after = Pt(2)
             self._runs(p, it)
 
-    def heading(self, text, level=1, numbered=True):
+    def heading(self, text, level=1, numbered=True, label=None):
         if numbered:
             self.counters[level - 1] += 1
             for i in range(level, 3):
                 self.counters[i] = 0
             num = ".".join(str(c) for c in self.counters[:level])
+            self._label("sec", label, num)
             text = f"{num}{'.' if level == 1 else ''} {text}"
         return self.doc.add_heading(text, level=level)
 
     def equation(self, latex, label=None):
         self.eq_no += 1
+        self._label("eq", label, self.eq_no)
         tbl = self.doc.add_table(rows=1, cols=2)
         tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
         tbl.autofit = False
@@ -176,8 +202,9 @@ class Manuscript:
             setattr(self, f"eq_{label}", self.eq_no)
         return self.eq_no
 
-    def figure(self, path, caption, width_cm=16.0):
+    def figure(self, path, caption, width_cm=16.0, label=None):
         self.fig_no += 1
+        self._label("fig", label, self.fig_no)
         p = self.doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p.paragraph_format.keep_with_next = True
@@ -191,8 +218,9 @@ class Manuscript:
         self._runs(c, caption, size=9.5)
         return self.fig_no
 
-    def table(self, header, rows, caption, col_widths_cm=None, font_size=8.5, notes=None):
+    def table(self, header, rows, caption, col_widths_cm=None, font_size=8.5, notes=None, label=None):
         self.tab_no += 1
+        self._label("tab", label, self.tab_no)
         c = self.doc.add_paragraph()
         c.paragraph_format.keep_with_next = True
         c.paragraph_format.line_spacing = 1.15
@@ -261,3 +289,16 @@ class Manuscript:
 
     def save(self, path):
         self.doc.save(str(path))
+
+
+def build_two_pass(build_fn, refs):
+    """Build once to collect label numbers, then again so that forward references resolve."""
+    first = Manuscript()
+    first.set_references(refs)
+    build_fn(first)
+    m = Manuscript(labels=first.labels)
+    m.set_references(refs)
+    build_fn(m)
+    if m.unresolved:
+        raise KeyError(f"unresolved cross-references: {sorted(m.unresolved)}")
+    return m

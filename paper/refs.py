@@ -83,4 +83,15 @@ REFS = {
     "Trevino2000": "L.A. Trevino, E.S. Orndoff, Advanced space suit insulation feasibility study, in: 30th International Conference on Environmental Systems, SAE 2000-01-2479, 2000. https://ntrs.nasa.gov/citations/20100042640",
     "Hickey1995": "G.S. Hickey, D. Braun, L.-C. Wen, H.J. Eisen, Integrated lightweight structure and thermal insulation for Mars rover, SAE Technical Paper 951523, 1995. https://doi.org/10.4271/951523",
     "Schaezler2011": "R.N. Schaezler, A.J. Cook, D.J. Leonard, A. Ghariani, Trending of overboard leakage of ISS cabin atmosphere, in: 41st International Conference on Environmental Systems, AIAA 2011-5149, 2011. https://ntrs.nasa.gov/citations/20110012997",
+    # ---------------------------------------------------------------- ExoBEM-Core / engine work
+    "ZhangCore": "L. Zhang, ExoBEM-Core: auditing and adapting the EnergyPlus engine for building energy simulation on the Moon and Mars, companion manuscript in preparation, 2026.",
+    "ZhangExoBEM": "L. Zhang, ExoBEM: re-engineering the EnergyPlus heat-balance method for building energy simulation of lunar and Martian habitats, companion manuscript in preparation, 2026.",
+    "EPlus262": "U.S. Department of Energy, EnergyPlus Version 26.2.0 Documentation: Engineering Reference, U.S. DOE Building Technologies Office, 2026.",
+    "ExoBEMRepo": "TensorBuildLab, ExoBEM: building energy simulation for lunar and Martian habitats, version 0.1.0, https://github.com/TensorBuildLab/ExoBEM, 2026.",
+    "ExoBEMCoreRepo": "TensorBuildLab, ExoBEM-Core: a planetary mode for the EnergyPlus v26.2 engine, milestone M1, https://github.com/TensorBuildLab/ExoBEM-Core, 2026.",
+    "Seem1987": "J.E. Seem, Modeling of Heat Transfer in Buildings, Ph.D. thesis, University of Wisconsin–Madison, 1987.",
+    "TabaresVelasco2012": "P.C. Tabares-Velasco, B. Griffith, Diagnostic test cases for verifying surface heat transfer algorithms and boundary conditions in building energy simulation programs, J. Build. Perform. Simul. 5 (2012) 329–346. https://doi.org/10.1080/19401493.2011.595501",
+    "Oberkampf2010": "W.L. Oberkampf, C.J. Roy, Verification and Validation in Scientific Computing, Cambridge University Press, Cambridge, 2010.",
+    "Guglielmetti2011": "R. Guglielmetti, D. Macumber, N. Long, OpenStudio: an open source integrated analysis platform, in: Proc. Building Simulation 2011, IBPSA, Sydney, 2011, pp. 442–449.",
+    "Wetter2014": "M. Wetter, W. Zuo, T.S. Nouidui, X. Pang, Modelica Buildings library, J. Build. Perform. Simul. 7 (2014) 253–270. https://doi.org/10.1080/19401493.2013.765506",
 }
