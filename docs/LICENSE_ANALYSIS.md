@@ -20,12 +20,11 @@ No fee or permission is needed. You must respect four conditions.
 | (3) No endorsement | The names of the University of California, LBNL, University of Illinois, U.S. DOE or contributors cannot be used to endorse or promote the derived product without written permission. | The README and paper state that ExoBEM is *not* endorsed by these organizations. |
 | (4) Use of the EnergyPlus™ name | A modified product **may not** be called "EnergyPlus", "E+", "e+" or anything confusingly similar in a product name, company name or promotion without DOE's prior written consent. Unmodified redistributions must be called "EnergyPlus version X". | The tool is named **ExoBEM**. It is described factually as "re-implementing the EnergyPlus heat-balance method" (an allowed factual reference, not a product name). |
 
-## Action item: the repository name
+## Repository name
 
-The GitHub repository is currently `TensorBuildLab/EnergyPlus-extraterrestrial`. A repository
-name works like a product name in practice. To stay clearly within clause (4), we recommend renaming the
-repository to `TensorBuildLab/ExoBEM` (GitHub automatically redirects the old URL). The code and
-paper never use "EnergyPlus" as the product name.
+The repository was renamed from `TensorBuildLab/EnergyPlus-extraterrestrial` to
+`TensorBuildLab/ExoBEM` so that "EnergyPlus" no longer appears in the project's name (clause 4).
+GitHub redirects the old URL. The code and paper never use "EnergyPlus" as the product name.
 
 ## Other notes
 

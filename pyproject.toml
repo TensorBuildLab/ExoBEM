@@ -19,3 +19,6 @@ exobem = "exobem.io:main"
 
 [tool.setuptools.packages.find]
 include = ["exobem*"]
+
+[project.urls]
+Repository = "https://github.com/TensorBuildLab/ExoBEM"

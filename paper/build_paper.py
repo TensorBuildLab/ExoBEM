@@ -649,7 +649,7 @@ def build():
     m.heading("Software and data availability", numbered=False)
     m.para(
         "ExoBEM v0.1.0, the EnergyPlus verification inputs, case-study scripts and the data behind every figure and "
-        "table are available at https://github.com/TensorBuildLab/EnergyPlus-extraterrestrial (BSD-3-Clause). "
+        "table are available at https://github.com/TensorBuildLab/ExoBEM (BSD-3-Clause). "
         "The repository will be renamed to avoid the EnergyPlus name in accordance with the EnergyPlus license. "
         "EnergyPlus 23.2 and the TMY3 weather file are available from the U.S. DOE.")
     m.heading("Declaration of generative AI use", numbered=False)

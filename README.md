@@ -100,7 +100,8 @@ ECLSS components, and the planned C++ back-port into an EnergyPlus fork.
 
 ## Citation
 
-If you use ExoBEM, please cite the accompanying paper (`paper/ExoBEM_manuscript.docx`, in preparation).
+If you use ExoBEM, please cite the accompanying paper (`paper/ExoBEM_manuscript.docx`, in preparation) and
+the repository, https://github.com/TensorBuildLab/ExoBEM.
 
 ## License
 
