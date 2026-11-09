@@ -95,8 +95,12 @@ python verification/compare_energyplus.py
 ## Status and roadmap
 
 v0.1: single-zone engine, verified on Earth, demonstrated on the Moon and Mars. See
-[docs/ROADMAP.md](docs/ROADMAP.md) for multi-zone, moisture, terrain shading, the Mars boundary layer,
-ECLSS components, and the planned C++ back-port into an EnergyPlus fork.
+[docs/ROADMAP.md](docs/ROADMAP.md) for multi-zone, moisture, terrain shading, the Mars boundary layer and
+ECLSS components.
+
+**C++ companion:** [ExoBEM-Core](https://github.com/TensorBuildLab/ExoBEM-Core) is a fork of the full
+EnergyPlus v26.2 engine with the same planetary physics (Moon and Mars). It reproduces EnergyPlus exactly on
+Earth and agrees with this Python model within 1 % on the lunar and Martian habitat cases.
 
 ## Citation
 

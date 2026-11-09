@@ -14,7 +14,7 @@ single lunar run works. It would also need a full C++ toolchain, which this mach
 Phase 1 therefore re-implements the parts of the EnergyPlus algorithms that habitats need, in a
 compact Python engine whose time base, ephemeris and boundary conditions are planet-agnostic. It is
 verified against EnergyPlus 23.2 on Earth, so the planetary extensions start from a trusted core.
-Phase 3 ports the validated planetary physics back into EnergyPlus's C++ code base.
+Phase 3 ports the validated planetary physics back into EnergyPlus's C++ code base (ExoBEM-Core).
 
 ## Phase 1 — ExoBEM core (v0.1, this release) ✅
 
@@ -42,14 +42,19 @@ Phase 3 ports the validated planetary physics back into EnergyPlus's C++ code ba
 7. **Calibration and validation** against thermal-vacuum chamber tests and analog habitats (HI-SEAS, MDRS, Mars-500).
 8. **Uncertainty quantification**: Monte-Carlo over regolith properties, dust optical depth and crew schedules.
 
-## Phase 3 — Back-port into EnergyPlus C++ (v1.0)
+## Phase 3 — Back-port into EnergyPlus C++: ExoBEM-Core (in progress)
 
-* Fork NREL/EnergyPlus into a renamed project (license clause 4: no "EnergyPlus" in the product name).
-* Add a `Site:Planet` object (gravity, day length, atmosphere gas, solar constant and ephemeris).
-* Generalize the WeatherManager time base to arbitrary day lengths and add an extraterrestrial weather format.
-* Add a vacuum/CO2 outdoor-medium option to the convection and psychrometric modules.
-* Add a regolith ground model and radiator plant components.
-* Regression-test the fork against ExoBEM v0.x.
+The C++ fork lives in [TensorBuildLab/ExoBEM-Core](https://github.com/TensorBuildLab/ExoBEM-Core)
+(branch `exobem-core`, based on EnergyPlus v26.2.0; renamed because of license clause 4).
+
+* ✅ M1: `Site:PlanetaryBody` object; Mars24 and lunar ephemerides; environment generator (vacuum sky,
+  Mars dust two-stream, pressure, downwelling IR, regolith column); cabin pressure for zone air; vacuum/CO2
+  exterior convection and gas/gravity-aware interior convection; regolith ground; CondFD steady start-up;
+  validator for Earth-only objects. Earth results bit-for-bit identical to v26.2.0 (14 example files);
+  Moon/Mars habitat cooling within 0.01 % / 0.7 % of ExoBEM.
+* M2: sol clock for Mars (run-time hour length), cabin gas psychrometrics, gravity in every buoyancy model,
+  runs without a weather file, planetary design days.
+* M3: space radiator plant component and heat-pump lift, PV in vacuum, windows.
 
 ## Phase 4 — Dissemination
 
