@@ -10,8 +10,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FIG = ROOT / "paper" / "figures"
-F = json.loads((ROOT / "paper" / "data" / "core_facts.json").read_text())
-S = json.loads((ROOT / "paper" / "data" / "core_summary.json").read_text())
+F = json.loads((ROOT / "paper" / "data" / "core_facts.json").read_text(encoding="utf-8-sig"))
+S = json.loads((ROOT / "paper" / "data" / "core_summary.json").read_text(encoding="utf-8-sig"))
 AF = F["audit_facts"]
 DIFF = F["diff"]
 UT = F["unit_tests"]

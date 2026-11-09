@@ -112,7 +112,7 @@ def fig_hooks():
 
 # --------------------------------------------------------------------------- audit
 def fig_audit():
-    facts = json.loads((DATA / "core_facts.json").read_text())
+    facts = json.loads((DATA / "core_facts.json").read_text(encoding="utf-8-sig"))
     areas = facts["audit"]["areas"][::-1]
     labels = [a["label"] for a in areas]
     fig, ax = plt.subplots(figsize=(7.2, 2.7))
@@ -185,7 +185,7 @@ def fig_environment():
 # --------------------------------------------------------------------------- habitat response
 def fig_response():
     mo, ma = load("moon_equator"), load("mars_jezero")
-    S = json.loads((DATA / "core_summary.json").read_text())
+    S = json.loads((DATA / "core_summary.json").read_text(encoding="utf-8-sig"))
     fig, axs = plt.subplots(3, 2, figsize=(7.4, 5.8), sharex="col")
     for j, (d, case, title) in enumerate(((mo, "moon_equator", "Moon, equator"), (ma, "mars_jezero", "Mars, Jezero"))):
         t = d["hour"] / 24

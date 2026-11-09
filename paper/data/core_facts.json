@@ -1,4 +1,4 @@
-﻿{
+{
  "source": "ExoBEM-Core M1, https://github.com/TensorBuildLab/ExoBEM-Core, branch exobem-core, commits de2a82105 and f17b0171d; planetary/VERIFICATION.md, planetary/DESIGN.md, planetary/audit/*.md",
  "base_version": "26.2.0",
  "source_lines_cc_hh": 720886,
