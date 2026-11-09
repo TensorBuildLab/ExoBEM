@@ -1,0 +1,56 @@
+{
+  "Case600_opaque": {
+    "exobem_wall_time_s": 18.118911504745483,
+    "eplus_heating_kWh": 4503.6037191066525,
+    "exobem_heating_kWh": 4506.675590642625,
+    "eplus_cooling_kWh": 391.95534165589754,
+    "exobem_cooling_kWh": 393.7501950801939,
+    "eplus_peak_heating_W": 2995.827910718348,
+    "exobem_peak_heating_W": 2996.803631782939,
+    "eplus_peak_cooling_W": 1295.9871984433375,
+    "exobem_peak_cooling_W": 1283.3948928332247,
+    "hourly_net_load_RMSE_W": 23.268081642285644,
+    "hourly_net_load_MBE_W": 0.14577832325075654,
+    "hourly_net_load_CVRMSE_pct": 4.163536639157064,
+    "hourly_net_load_R2": 0.9987491568305122
+  },
+  "Case600FF_opaque": {
+    "exobem_wall_time_s": 17.619669198989868,
+    "eplus_Tmin": -17.20078596194266,
+    "exobem_Tmin": -17.325653408380816,
+    "eplus_Tmax": 39.0214574492446,
+    "exobem_Tmax": 39.08707863049102,
+    "eplus_Tmean": 14.774614286960592,
+    "exobem_Tmean": 14.771200190039405,
+    "T_RMSE_K": 0.31360396656151296,
+    "T_MBE_K": -0.003414096921185425,
+    "T_R2": 0.9990802350714936
+  },
+  "Case900_opaque": {
+    "exobem_wall_time_s": 18.35202121734619,
+    "eplus_heating_kWh": 4147.1039521582015,
+    "exobem_heating_kWh": 4144.058654471951,
+    "eplus_cooling_kWh": 124.2867398941114,
+    "exobem_cooling_kWh": 125.12332699073683,
+    "eplus_peak_heating_W": 2628.9773041235712,
+    "exobem_peak_heating_W": 2631.6363709751604,
+    "eplus_peak_cooling_W": 673.3856496444132,
+    "exobem_peak_cooling_W": 670.1556806078297,
+    "hourly_net_load_RMSE_W": 19.81026338815496,
+    "hourly_net_load_MBE_W": -0.44313753229174957,
+    "hourly_net_load_CVRMSE_pct": 4.062796400318421,
+    "hourly_net_load_R2": 0.9986664533201671
+  },
+  "Case900FF_opaque": {
+    "exobem_wall_time_s": 17.68860912322998,
+    "eplus_Tmin": -7.229999977464871,
+    "exobem_Tmin": -7.312782806737005,
+    "eplus_Tmax": 32.487140926735066,
+    "exobem_Tmax": 32.505453897532675,
+    "eplus_Tmean": 14.697135435836117,
+    "exobem_Tmean": 14.738098791250678,
+    "T_RMSE_K": 0.4656243382308194,
+    "T_MBE_K": 0.040963355414563,
+    "T_R2": 0.9974289412779119
+  }
+}

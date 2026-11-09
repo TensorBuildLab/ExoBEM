@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+verification/energyplus/runs/
+verification/compare_log.txt
+studies/run_log.txt
+*.egg-info/
+build/
+dist/
+~$*.docx
+studies/fig_log.txt

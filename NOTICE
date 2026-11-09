@@ -1,0 +1,16 @@
+ExoBEM - Extraterrestrial Building Energy Modeling
+Copyright (c) 2026, TensorBuildLab and ExoBEM contributors (BSD 3-Clause, see LICENSE).
+
+ExoBEM's zone heat-balance core re-implements, in new Python code, algorithms documented in
+the EnergyPlus(TM) Engineering Reference (surface and zone air heat balance, TARP convection,
+Perez sky model, ScriptF interior radiation, conduction finite difference). No EnergyPlus source
+code is included. ExoBEM is not EnergyPlus, and it is not endorsed by the U.S. Department of
+Energy, the University of California, Lawrence Berkeley National Laboratory, the University of
+Illinois, or any other EnergyPlus contributor.
+
+EnergyPlus, Copyright (c) 1996-2023, The Board of Trustees of the University of Illinois, The
+Regents of the University of California, through Lawrence Berkeley National Laboratory (subject
+to receipt of any required approvals from the U.S. Dept. of Energy), Oak Ridge National
+Laboratory, managed by UT-Battelle, Alliance for Sustainable Energy, LLC, and other
+contributors. All rights reserved. The EnergyPlus license is reproduced in
+third_party/EnergyPlus-LICENSE.txt.

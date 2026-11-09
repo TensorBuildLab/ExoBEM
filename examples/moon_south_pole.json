@@ -1,0 +1,25 @@
+{
+  "simulation": {"name": "lunar_south_pole_habitat", "timestep_s": 1800},
+  "site": {"planet": "moon", "latitude": -89.45, "longitude": -137.31,
+           "start_utc": "2030-01-01T00:00:00", "duration_days": 59.06,
+           "horizon_deg": -1.65},
+  "constructions": {
+    "shell": ["lunar_regolith_cover_1m", "beta_cloth_outer_1mm", "mli_20layer_vacuum",
+              "aluminum_2219_4mm", "interior_panel_10mm"],
+    "floor": ["lunar_ground_3m", "mli_20layer_vacuum", "aluminum_2219_4mm", "interior_panel_10mm"]
+  },
+  "geometry": {"type": "horizontal_cylinder", "radius": 3.0, "length": 10.0,
+               "shell": "shell", "end": "shell", "floor": "floor", "axis_azimuth": 90},
+  "zone": {"cabin_pressure_kPa": 70.3, "o2_fraction": 0.265, "leakage_kg_per_day": 0.1,
+           "heating_setpoint_C": 18.0, "cooling_setpoint_C": 27.0,
+           "interior_convection": "physical", "cabin_air_velocity": 0.15},
+  "gains": [
+    {"name": "crew", "power_W": 340, "radiant_fraction": 0.5, "latent_W": 215,
+     "schedule": [0.3,0.3,0.3,0.3,0.3,0.3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0.3,0.3]},
+    {"name": "equipment", "power_W": 2500, "radiant_fraction": 0.3,
+     "schedule": [0.7,0.7,0.7,0.7,0.7,0.7,0.7,1,1,1,1,1,1,1,1,1,1,1,1,0.85,0.85,0.85,0.85,0.85]},
+    {"name": "lighting", "power_W": 400, "radiant_fraction": 0.4,
+     "schedule": [0.2,0.2,0.2,0.2,0.2,0.2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0.2,0.2]}
+  ],
+  "thermal_control": {"radiator_area_m2": 40, "radiator_azimuth": 0, "radiator_tilt": 90}
+}

@@ -1,0 +1,22 @@
+{
+  "simulation": {"name": "jezero_habitat", "timestep_s": 1849.4842},
+  "site": {"planet": "mars", "latitude": 18.44, "longitude": 77.45,
+           "start_utc": "2031-01-01T00:00:00", "duration_sols": 30,
+           "P_mean": 710, "thermal_inertia": 350, "albedo": 0.14},
+  "constructions": {
+    "shell": ["mars_regolith_cover_1m", "beta_cloth_outer_1mm", "aerogel_blanket_20mm",
+              "aluminum_2219_4mm", "interior_panel_10mm"],
+    "floor": ["mars_ground_3m", "aerogel_blanket_20mm", "aluminum_2219_4mm", "interior_panel_10mm"]
+  },
+  "geometry": {"type": "horizontal_cylinder", "radius": 3.0, "length": 10.0,
+               "shell": "shell", "end": "shell", "floor": "floor", "axis_azimuth": 90},
+  "zone": {"cabin_pressure_kPa": 70.3, "o2_fraction": 0.265, "leakage_kg_per_day": 0.1,
+           "heating_setpoint_C": 18.0, "cooling_setpoint_C": 27.0,
+           "interior_convection": "physical"},
+  "gains": [
+    {"name": "crew", "power_W": 340, "radiant_fraction": 0.5, "latent_W": 215,
+     "schedule": [0.3,0.3,0.3,0.3,0.3,0.3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0.3,0.3]},
+    {"name": "equipment", "power_W": 2500, "radiant_fraction": 0.3}
+  ],
+  "thermal_control": {"radiator_area_m2": 40, "radiator_azimuth": 0}
+}
