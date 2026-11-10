@@ -10,8 +10,9 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[1]
-FIG = ROOT / "paper" / "figures"
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+FIG = HERE / "figures"
 R = json.loads((ROOT / "studies" / "results" / "case_studies.json").read_text())
 V = json.loads((ROOT / "verification" / "results" / "energyplus_comparison.json").read_text())
 B = R["baseline"]

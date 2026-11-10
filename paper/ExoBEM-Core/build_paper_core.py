@@ -1,16 +1,17 @@
 """Build the ExoBEM-Core journal manuscript (Word).
 
-    python paper/extract_core_data.py      (once, needs the ExoBEM-Core checkout and runs)
-    python paper/build_figures_core.py
-    python paper/build_paper_core.py   ->  paper/ExoBEM-Core_manuscript.docx
+    python paper/ExoBEM-Core/extract_core_data.py      (once, needs the ExoBEM-Core checkout and runs)
+    python paper/ExoBEM-Core/build_figures_core.py
+    python paper/ExoBEM-Core/build_paper_core.py   ->  paper/ExoBEM-Core/ExoBEM-Core_manuscript.docx
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "paper"))
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+sys.path[:0] = [str(HERE), str(ROOT / "paper" / "common")]
 
 import sections_core as C  # noqa: E402
 from docxkit import build_two_pass  # noqa: E402
@@ -163,7 +164,7 @@ def build(m):
 
 def main():
     m = build_two_pass(build, REFS)
-    out = ROOT / "paper" / "ExoBEM-Core_manuscript.docx"
+    out = HERE / "ExoBEM-Core_manuscript.docx"
     m.save(out)
     print("saved", out, "| cited", len(m.cite_order), "| figs", m.fig_no, "| tables", m.tab_no, "| eqs", m.eq_no)
 

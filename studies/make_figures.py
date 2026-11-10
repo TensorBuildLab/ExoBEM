@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 RES = ROOT / "studies" / "results"
 VER = ROOT / "verification" / "results"
-FIG = ROOT / "paper" / "figures"
+FIG = ROOT / "paper" / "ExoBEM" / "figures"
 FIG.mkdir(parents=True, exist_ok=True)
 
 # validated reference palette (dataviz skill, light mode) - fixed categorical order

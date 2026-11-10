@@ -2,9 +2,9 @@
 
     set EXOBEM_CORE=<ExoBEM-Core checkout>      (default ../exo-fork)
     set EXOBEM_CORE_RUNS=<run folder>            (default ../exo-runs; contains moon/out and mars/out)
-    python paper/extract_core_data.py
+    python paper/ExoBEM-Core/extract_core_data.py
 
-Writes paper/data/core_<case>_hourly.csv (hourly C++ and Python series) and paper/data/core_summary.json.
+Writes paper/ExoBEM-Core/data/core_<case>_hourly.csv (hourly C++ and Python series) and paper/ExoBEM-Core/data/core_summary.json.
 The papers are then built from these files only, so the fork does not have to be present.
 """
 from __future__ import annotations
@@ -17,10 +17,11 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[1]
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
 CORE = Path(os.environ.get("EXOBEM_CORE", ROOT.parent / "exo-fork"))
 RUNS = Path(os.environ.get("EXOBEM_CORE_RUNS", ROOT.parent / "exo-runs"))
-OUT = ROOT / "paper" / "data"
+OUT = HERE / "data"
 
 CASES = {"moon_equator": "moon", "mars_jezero": "mars"}
 

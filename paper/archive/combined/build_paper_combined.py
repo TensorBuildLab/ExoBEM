@@ -1,6 +1,6 @@
 """Build the combined manuscript (ExoBEM and ExoBEM-Core in one paper).
 
-    python paper/build_paper_combined.py   ->  paper/ExoBEM_combined_manuscript.docx
+    python paper/archive/combined/build_paper_combined.py   ->  paper/archive/combined/ExoBEM_combined_manuscript.docx
 Reuses the sections of the two separate manuscripts (sections_exobem.py, sections_core.py).
 """
 from __future__ import annotations
@@ -8,8 +8,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "paper"))
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[2]
+sys.path[:0] = [str(ROOT / "paper" / d) for d in ("common", "ExoBEM", "ExoBEM-Core")]
 
 import sections_core as C  # noqa: E402
 import sections_exobem as X  # noqa: E402
@@ -209,7 +210,7 @@ def build(m):
 
 def main():
     m = build_two_pass(build, REFS)
-    out = ROOT / "paper" / "ExoBEM_combined_manuscript.docx"
+    out = HERE / "ExoBEM_combined_manuscript.docx"
     m.save(out)
     print("saved", out, "| cited", len(m.cite_order), "| figs", m.fig_no, "| tables", m.tab_no, "| eqs", m.eq_no)
 

@@ -38,7 +38,7 @@ Reproduce with `python verification/energyplus/make_idf.py`, run EnergyPlus (see
 
 A metre of lunar regolith (k ≈ 3–5 mW/m·K) makes the envelope nearly adiabatic. The design problem
 becomes rejecting internal heat and storing energy through darkness. Reproduce with
-`python studies/run_case_studies.py && python studies/make_figures.py && python paper/build_paper.py`.
+`python studies/run_case_studies.py && python studies/make_figures.py && python paper/ExoBEM/build_paper.py`.
 
 ## Quick start
 
@@ -79,7 +79,7 @@ examples/               JSON inputs (lunar south pole, Jezero)
 tests/                  analytical, reference-data and EnergyPlus-parity tests
 verification/           EnergyPlus 23.2 comparison (IDF generator + comparison script)
 studies/                case studies and figures for the paper
-paper/                  manuscript (Word) and figures
+paper/                  manuscripts: ExoBEM/ (this tool), ExoBEM-Core/ (C++ engine), archive/
 docs/                   license analysis, roadmap, research dossier
 ```
 
@@ -104,7 +104,7 @@ Earth and agrees with this Python model within 1 % on the lunar and Martian habi
 
 ## Citation
 
-If you use ExoBEM, please cite the accompanying paper (`paper/ExoBEM_manuscript.docx`, in preparation) and
+If you use ExoBEM, please cite the accompanying paper (`paper/ExoBEM/ExoBEM_manuscript.docx`, in preparation) and
 the repository, https://github.com/TensorBuildLab/ExoBEM.
 
 ## License

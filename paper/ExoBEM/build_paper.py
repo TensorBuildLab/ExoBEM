@@ -1,6 +1,6 @@
 """Build the ExoBEM journal manuscript (Word) from results.
 
-    python paper/build_paper.py   ->  paper/ExoBEM_manuscript.docx
+    python paper/ExoBEM/build_paper.py   ->  paper/ExoBEM/ExoBEM_manuscript.docx
 All numbers quoted in the text are read from studies/results and verification/results.
 The sections shared with the combined manuscript live in sections_exobem.py.
 """
@@ -9,8 +9,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "paper"))
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+sys.path[:0] = [str(HERE), str(ROOT / "paper" / "common")]
 
 import sections_exobem as X  # noqa: E402
 from docxkit import build_two_pass  # noqa: E402
@@ -187,7 +188,7 @@ def build(m):
 
 def main():
     m = build_two_pass(build, REFS)
-    out = ROOT / "paper" / "ExoBEM_manuscript.docx"
+    out = HERE / "ExoBEM_manuscript.docx"
     m.save(out)
     unused = sorted(set(REFS) - set(m.cite_order))
     print("saved", out, "| cited", len(m.cite_order), "| figs", m.fig_no, "| tables", m.tab_no)

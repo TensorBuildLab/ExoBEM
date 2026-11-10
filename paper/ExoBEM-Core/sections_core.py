@@ -1,17 +1,18 @@
 """Sections of the ExoBEM-Core (C++ engine) manuscript, shared by the ExoBEM-Core paper and the combined paper.
 
-Numbers are read from paper/data/core_facts.json and paper/data/core_summary.json
-(written by paper/extract_core_data.py from the ExoBEM-Core repository and its verification runs).
+Numbers are read from paper/ExoBEM-Core/data/core_facts.json and paper/ExoBEM-Core/data/core_summary.json
+(written by paper/ExoBEM-Core/extract_core_data.py from the ExoBEM-Core repository and its verification runs).
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-FIG = ROOT / "paper" / "figures"
-F = json.loads((ROOT / "paper" / "data" / "core_facts.json").read_text(encoding="utf-8-sig"))
-S = json.loads((ROOT / "paper" / "data" / "core_summary.json").read_text(encoding="utf-8-sig"))
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+FIG = HERE / "figures"
+F = json.loads((HERE / "data" / "core_facts.json").read_text(encoding="utf-8-sig"))
+S = json.loads((HERE / "data" / "core_summary.json").read_text(encoding="utf-8-sig"))
 AF = F["audit_facts"]
 DIFF = F["diff"]
 UT = F["unit_tests"]

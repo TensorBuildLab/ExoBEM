@@ -1,6 +1,6 @@
-"""Figures for the ExoBEM-Core and combined manuscripts (reads paper/data, writes paper/figures/core_*.png).
+"""Figures for the ExoBEM-Core and combined manuscripts (reads paper/ExoBEM-Core/data, writes paper/ExoBEM-Core/figures/core_*.png).
 
-    python paper/build_figures_core.py
+    python paper/ExoBEM-Core/build_figures_core.py
 Same style and palette as studies/make_figures.py.
 """
 from __future__ import annotations
@@ -15,9 +15,9 @@ import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.patches import FancyBboxPatch  # noqa: E402
 import numpy as np  # noqa: E402
 
-ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "paper" / "data"
-FIG = ROOT / "paper" / "figures"
+HERE = Path(__file__).resolve().parent
+DATA = HERE / "data"
+FIG = HERE / "figures"
 
 C = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 INK, INK2, MUTED, GRID, AXIS = "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7"
