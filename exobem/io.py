@@ -66,6 +66,9 @@ def build_environment(site: dict, dt: float, base_dir: Path | None = None):
         p = Path(site["weather_file"])
         if not p.is_absolute() and base_dir is not None:
             p = base_dir / p
+        if not p.exists():
+            raise FileNotFoundError(f"weather file {p} not found; write one with 'exobem weather ... -o {p.name}' "
+                                    "(see docs/tutorial) or remove 'weather_file' to generate the environment")
         env = read_pwf(p)
         if abs(env.dt - dt) > 1e-6:
             raise ValueError(f"weather file time step {env.dt} s differs from simulation timestep_s {dt} s")
