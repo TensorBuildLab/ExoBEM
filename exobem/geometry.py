@@ -106,7 +106,7 @@ def vertical_cylinder(radius: float, height: float, wall: str, roof: str, floor:
             for k in range(n_facets + 1)]
     for i in range(n_facets):
         (xa, ya), (xb, yb) = ring[i], ring[i + 1]
-        s[i].vertices = [(xa, ya, z0), (xb, yb, z0), (xb, yb, z0 + height), (xa, ya, z0 + height)]
+        s[i].vertices = [(xa, ya, z0 + height), (xb, yb, z0 + height), (xb, yb, z0), (xa, ya, z0)]   # outward normal
     s[n_facets].vertices = [(x, y, z0 + height) for x, y in ring[:-1][::-1]]
     s[n_facets + 1].vertices = [(x, y, z0) for x, y in ring[:-1]]
     return Geometry(s, a_end * height, a_end)

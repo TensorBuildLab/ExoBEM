@@ -138,7 +138,7 @@ def fig_audit():
 
 # --------------------------------------------------------------------------- environment
 def fig_environment():
-    mo, ma = load("moon_equator"), load("mars_jezero")
+    mo, ma = load("moon_equator_gen"), load("mars_jezero_gen")
     fig, axs = plt.subplots(3, 2, figsize=(7.4, 5.6), sharex="col")
     tm = mo["hour"] / 24
     sl = slice(16 * 24, 19 * 24)  # three Earth days on Mars
@@ -156,7 +156,8 @@ def fig_environment():
     axs[1, 0].plot(tm, mo["cpp_beam"], **CPP)
     axs[1, 0].set_ylabel("Irradiance (W/m²)")
     axs[1, 0].set_title("(c) Direct normal irradiance")
-    axs[1, 0].legend(loc="center", bbox_to_anchor=(0.5, 0.55), fontsize=6.8)
+    axs[1, 0].set_ylim(-60, 1950)
+    axs[1, 0].legend(loc="upper center", ncol=2, fontsize=6.8)
     axs[1, 1].plot(ta, ma["py_beam"][sl], **PY)
     axs[1, 1].plot(ta, ma["cpp_beam"][sl], **CPP)
     axs[1, 1].plot(ta, ma["py_dif"][sl], color=C[2], lw=1.7, label="diffuse horizontal (Python)")
@@ -212,12 +213,55 @@ def fig_response():
     for j in range(2):  # re-place the window labels after the y-limits change
         for txt in list(axs[0, j].texts):
             txt.set_y(axs[0, j].get_ylim()[1])
-    axs[1, 0].legend(loc="lower left", fontsize=6.8)
+    axs[1, 0].set_ylim(top=210)
+    axs[1, 0].legend(loc="upper left", ncol=2, fontsize=6.8)
     fig.tight_layout(h_pad=0.8)
     save(fig, "core_fig4_response.png")
 
 
+def fig_habitats():
+    """Geometry of the two verification habitats and the NASA-class habitat comparison."""
+    import sys
+    sys.path.insert(0, str(HERE.parents[1]))
+    from exobem.cases import artemis_surface_habitat, lunar_habitat
+    from exobem.plot import plot_geometry
+    h = load("lunar_habitat")
+    fig = plt.figure(figsize=(7.4, 6.0))
+    ax1 = fig.add_subplot(2, 2, 1, projection="3d")
+    ax2 = fig.add_subplot(2, 2, 2, projection="3d")
+    plot_geometry(lunar_habitat(), ax=ax1, title="(a) Regolith-shielded module", elev=24, azim=-60)
+    plot_geometry(artemis_surface_habitat(), ax=ax2, title="(b) NASA-class lunar habitat", elev=22, azim=-58)
+    ax1.text2D(0.5, 0.95, "r 3 m, L 10 m, 1 m regolith over MLI;\nbottom facets rest on the regolith (hidden)",
+               transform=ax1.transAxes, ha="center", va="top", fontsize=6.3, color=INK2)
+    ax2.text2D(0.5, 0.95, "D 6.5 m, H 5.25 m, 174 m³, on legs;\nbeta cloth / MLI / aluminium",
+               transform=ax2.transAxes, ha="center", va="top", fontsize=6.3, color=INK2)
+    t = h["hour"] / 24
+    ax3 = fig.add_subplot(2, 2, 3)
+    ax3.plot(t, h["py_Qc"] / 1000, **PY)
+    ax3.plot(t, h["cpp_Qc"] / 1000, **CPP)
+    ax3.plot(t, h["py_Ql"] / 1000, color=C[2], lw=1.6, label="latent, ExoBEM")
+    ax3.plot(t, h["cpp_Ql"] / 1000, color=C[3], lw=1.0, ls=(0, (3, 1.5)), label="latent, ExoBEM-Core")
+    ax3.set_ylabel("Cooling load (kW)")
+    ax3.set_xlabel("Elapsed time (Earth days)")
+    ax3.set_title("(c) Habitat (b): sensible and latent cooling")
+    ax3.set_ylim(0, 9.8)
+    ax3.legend(fontsize=6.0, ncol=2, loc="upper left", frameon=True, framealpha=0.95)
+    ax4 = fig.add_subplot(2, 2, 4)
+    ax4.plot(t, h["py_To_s"], color=C[0], lw=1.6, label="south wall, ExoBEM")
+    ax4.plot(t, h["cpp_To_s"], color=C[1], lw=1.0, ls=(0, (3, 1.5)), label="south wall, ExoBEM-Core")
+    ax4.plot(t, h["py_To_f"], color=C[2], lw=1.6, label="floor, ExoBEM")
+    ax4.plot(t, h["cpp_To_f"], color=C[3], lw=1.0, ls=(0, (3, 1.5)), label="floor, ExoBEM-Core")
+    ax4.set_ylabel("Outer face (°C)")
+    ax4.set_xlabel("Elapsed time (Earth days)")
+    ax4.set_title("(d) Habitat (b): outer-face temperatures")
+    ax4.set_ylim(-170, 230)
+    ax4.legend(fontsize=6.0, loc="upper left", ncol=2, frameon=True, framealpha=0.95)
+    fig.tight_layout(h_pad=1.0)
+    save(fig, "core_fig5_habitats.png")
+
+
 if __name__ == "__main__":
+    fig_habitats()
     fig_hooks()
     fig_audit()
     fig_environment()

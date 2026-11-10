@@ -1,7 +1,8 @@
 """Collect the ExoBEM-Core (C++) verification results used by the ExoBEM-Core and combined manuscripts.
 
     set EXOBEM_CORE=<ExoBEM-Core checkout>      (default ../exo-fork)
-    set EXOBEM_CORE_RUNS=<run folder>            (default ../exo-runs; contains moon/out and mars/out)
+    set EXOBEM_CORE_RUNS=<run folder>            (default ../exo-runs/m2; contains <case>_pwf and <case>_gen run folders
+                                                  with eplusout.sql and the comparison.json written by planetary/cases/compare.py)
     python paper/ExoBEM-Core/extract_core_data.py
 
 Writes paper/ExoBEM-Core/data/core_<case>_hourly.csv (hourly C++ and Python series) and paper/ExoBEM-Core/data/core_summary.json.
@@ -20,10 +21,10 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 CORE = Path(os.environ.get("EXOBEM_CORE", ROOT.parent / "exo-fork"))
-RUNS = Path(os.environ.get("EXOBEM_CORE_RUNS", ROOT.parent / "exo-runs"))
+RUNS = Path(os.environ.get("EXOBEM_CORE_RUNS", ROOT.parent / "exo-runs" / "m2"))
 OUT = HERE / "data"
 
-CASES = {"moon_equator": "moon", "mars_jezero": "mars"}
+CASES = {"moon_equator": "moon_equator_pwf", "mars_jezero": "mars_jezero_pwf"}
 
 
 def sql_series(db, name, key=None):
@@ -51,7 +52,7 @@ def main():
         sph = int(round(3600.0 / (ref["time_s"][1] - ref["time_s"][0])))
         names = [str(n) for n in ref["names"]]
         i = names.index("shell_00")
-        db = sqlite3.connect(RUNS / run / "out" / "eplusout.sql")
+        db = sqlite3.connect(RUNS / run / "eplusout.sql")
         zone = db.execute("SELECT ZoneName FROM Zones").fetchone()[0]
         ep = dict(
             Qc=sql_series(db, "Zone Ideal Loads Zone Sensible Cooling Rate"),
@@ -82,11 +83,44 @@ def main():
             w.writerow(cols)
             for h in range(n):
                 w.writerow([h] + [f"{d[k][h]:.6g}" for k in ep for d in (ep, py)])
-        cmp = json.loads((CORE / "planetary" / "cases" / case / "comparison.json").read_text())
-        summary[case] = dict(hours_total=n, steps_per_hour=sph, comparison=cmp)
+        # environment from the engine's own generator (no weather file): tests the C++ port of the models
+        dbg = sqlite3.connect(RUNS / f"{case}_gen" / "eplusout.sql")
+        eg = dict(Tg=sql_series(dbg, "Site Planetary Ground Surface Temperature"), Tsky=sql_series(dbg, "Site Sky Temperature"),
+                  beam=sql_series(dbg, "Site Direct Solar Radiation Rate per Area"),
+                  dif=sql_series(dbg, "Site Diffuse Solar Radiation Rate per Area"), alt=sql_series(dbg, "Site Solar Altitude Angle"))
+        with open(OUT / f"core_{case}_gen_hourly.csv", "w", newline="") as fh:
+            w = csv.writer(fh)
+            w.writerow(["hour"] + [f"{s}_{k}" for k in eg for s in ("cpp", "py")])
+            for h in range(n):
+                w.writerow([h] + [f"{d[k][h]:.6g}" for k in eg for d in (eg, py)])
+        cmp = json.loads((RUNS / f"{case}_pwf" / "comparison.json").read_text())
+        cmp_gen = json.loads((RUNS / f"{case}_gen" / "comparison.json").read_text())
+        summary[case] = dict(hours_total=n, steps_per_hour=sph, comparison=cmp, comparison_generator=cmp_gen)
         print(case, n, "hours")
-    summary["meta"] = dict(source="ExoBEM-Core M1 (branch exobem-core, commit f17b0171d) and Python ExoBEM v0.1",
-                           moon_window="second lunation (hours 696-1416 of the run)", mars_window="days 16-31")
+    # NASA-class lunar habitat: hourly C++ and Python series
+    hd = CORE / "planetary" / "cases" / "lunar_habitat"
+    ref = np.load(hd / "python_ref.npz")
+    db = sqlite3.connect(hd / "out" / "eplusout.sql")
+    names = [str(n) for n in ref["names"]]
+    sph = 20
+    ep = dict(Qc=sql_series(db, "Zone Ideal Loads Zone Sensible Cooling Rate"), Ql=sql_series(db, "Zone Ideal Loads Zone Latent Cooling Rate"),
+              rh=sql_series(db, "Zone Air Relative Humidity") / 100.0,
+              To_s=sql_series(db, "Surface Outside Face Temperature", "WALL_05"), To_f=sql_series(db, "Surface Outside Face Temperature", "FLOOR"),
+              Ti_s=sql_series(db, "Surface Inside Face Temperature", "WALL_05"))
+    py = dict(Qc=hourly(ref["Q_cooling_W"], sph), Ql=hourly(ref["Q_latent_W"], sph), rh=hourly(ref["rh"], sph),
+              To_s=hourly(ref["T_outside_C"][:, names.index("wall_05")], sph), To_f=hourly(ref["T_outside_C"][:, names.index("floor")], sph),
+              Ti_s=hourly(ref["T_inside_C"][:, names.index("wall_05")], sph))
+    n = min(len(ep["Qc"]), len(py["Qc"]))
+    with open(OUT / "core_lunar_habitat_hourly.csv", "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["hour"] + [f"{s_}_{k}" for k in ep for s_ in ("cpp", "py")])
+        for h in range(n):
+            w.writerow([h] + [f"{d[k][h]:.6g}" for k in ep for d in (ep, py)])
+    summary["lunar_habitat"] = json.loads((CORE / "planetary" / "cases" / "lunar_habitat" / "comparison.json").read_text())
+    summary["pv_vacuum"] = json.loads((CORE / "planetary" / "cases" / "pv_vacuum" / "pv_vacuum_check.json").read_text())
+    summary["meta"] = dict(source="ExoBEM-Core M2 (branch exobem-core, commit de425b800) and Python ExoBEM v0.2",
+                           moon_window="second lunation (720 h)", mars_window="days 16-31 (384 h)",
+                           modes="comparison = engine reading the PWF file; comparison_generator = engine's own environment generator")
     (OUT / "core_summary.json").write_text(json.dumps(summary, indent=1))
     print("wrote", OUT)
 

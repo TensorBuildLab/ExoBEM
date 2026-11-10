@@ -88,7 +88,7 @@ REFS = {
     "ZhangExoBEM": "L. Zhang, ExoBEM: re-engineering the EnergyPlus heat-balance method for building energy simulation of lunar and Martian habitats, companion manuscript in preparation, 2026.",
     "EPlus262": "U.S. Department of Energy, EnergyPlus Version 26.2.0 Documentation: Engineering Reference, U.S. DOE Building Technologies Office, 2026.",
     "ExoBEMRepo": "TensorBuildLab, ExoBEM: building energy simulation for lunar and Martian habitats, version 0.1.0, https://github.com/TensorBuildLab/ExoBEM, 2026.",
-    "ExoBEMCoreRepo": "TensorBuildLab, ExoBEM-Core: a planetary mode for the EnergyPlus v26.2 engine, milestone M1, https://github.com/TensorBuildLab/ExoBEM-Core, 2026.",
+    "ExoBEMCoreRepo": "TensorBuildLab, ExoBEM-Core: a planetary mode for the EnergyPlus v26.2 engine, milestone M2, https://github.com/TensorBuildLab/ExoBEM-Core, 2026.",
     "Seem1987": "J.E. Seem, Modeling of Heat Transfer in Buildings, Ph.D. thesis, University of Wisconsin–Madison, 1987.",
     "TabaresVelasco2012": "P.C. Tabares-Velasco, B. Griffith, Diagnostic test cases for verifying surface heat transfer algorithms and boundary conditions in building energy simulation programs, J. Build. Perform. Simul. 5 (2012) 329–346. https://doi.org/10.1080/19401493.2011.595501",
     "Oberkampf2010": "W.L. Oberkampf, C.J. Roy, Verification and Validation in Scientific Computing, Cambridge University Press, Cambridge, 2010.",

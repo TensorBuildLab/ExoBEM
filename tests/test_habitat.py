@@ -166,3 +166,6 @@ def test_vertices_match_orientation(geo):
         n = n / np.linalg.norm(n)
         tilt = np.degrees(np.arccos(np.clip(n[2], -1, 1)))
         assert abs(tilt - s.tilt) < 3.0, s.name
+        if 1.0 < s.tilt < 179.0:                      # outward normal also points to the surface azimuth
+            az = np.degrees(np.arctan2(n[0], n[1])) % 360.0
+            assert abs((az - s.azimuth + 180.0) % 360.0 - 180.0) < 3.0, s.name

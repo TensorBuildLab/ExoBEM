@@ -1,15 +1,15 @@
 {
- "source": "ExoBEM-Core M1, https://github.com/TensorBuildLab/ExoBEM-Core, branch exobem-core, commits de2a82105 and f17b0171d; planetary/VERIFICATION.md, planetary/DESIGN.md, planetary/audit/*.md",
+ "source": "ExoBEM-Core M2, https://github.com/TensorBuildLab/ExoBEM-Core, branch exobem-core, commit de425b800; planetary/VERIFICATION.md, planetary/DESIGN.md, planetary/audit/*.md",
  "base_version": "26.2.0",
  "source_lines_cc_hh": 720886,
  "diff": {
-  "files": 17,
-  "insertions": 1609,
-  "deletions": 12,
-  "new_module_lines": 1277,
-  "idd_lines": 150,
-  "hook_lines_existing_files": 182,
-  "existing_files_touched": 14
+  "files": 18,
+  "insertions": 1960,
+  "deletions": 13,
+  "new_module_lines": 1611,
+  "idd_lines": 157,
+  "hook_lines_existing_files": 192,
+  "existing_files_touched": 15
  },
  "audit": {
   "areas": [
@@ -160,7 +160,7 @@
   "suites": 33,
   "passed": 2379,
   "failed": 0,
-  "minutes": 3.1
+  "minutes": 3.0
  },
  "run_time_s": {
   "moon": 68,
@@ -170,7 +170,11 @@
   "steps_per_hour": 20,
   "python_moon": 197,
   "python_mars": 112,
-  "note": "Same Windows 11 computer, single thread; Python ExoBEM v0.1 times from planetary/cases/python_ref.log"
+  "note": "Same Windows 11 computer, single thread; Python ExoBEM v0.1 times from planetary/cases/python_ref.log",
+  "habitat_cpp": 0.5,
+  "habitat_days": 30,
+  "habitat_steps_per_hour": 20,
+  "habitat_python": 20.2
  },
  "startup_ablation": {
   "note": "Sensible cooling over the comparison window, ExoBEM-Core relative to Python ExoBEM, for successive start-up treatments of the CondFD walls",
@@ -186,7 +190,7 @@
     "-2.5"
    ],
    [
-    "Steady profile with k(T) and post-warm-up correction (M1)",
+    "Steady profile with k(T) and post-warm-up correction (M2)",
     "-0.01",
     "-0.7"
    ]
@@ -206,5 +210,15 @@
   ],
   "timestep_min": 3
  },
- "exobem_python_lines": 2469
+ "exobem_python_lines": 3756,
+ "lunar_habitat": {
+  "crew": 4,
+  "volume_m3": 174.2,
+  "envelope": "beta cloth / MLI R 19.2 / Al 4 mm / panel 10 mm",
+  "cabin": "56.5 kPa, 34 % O2, 20-25 C, RH 30-60 %",
+  "electric_kW": 14.0,
+  "conduction": "CTF",
+  "window_hours": 648,
+  "site": "lunar equator, 30 days from 2030-01-01, PWF"
+ }
 }

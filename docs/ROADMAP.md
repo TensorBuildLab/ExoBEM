@@ -52,9 +52,11 @@ The C++ fork lives in [TensorBuildLab/ExoBEM-Core](https://github.com/TensorBuil
   exterior convection and gas/gravity-aware interior convection; regolith ground; CondFD steady start-up;
   validator for Earth-only objects. Earth results bit-for-bit identical to v26.2.0 (14 example files);
   Moon/Mars habitat cooling within 0.01 % / 0.7 % of ExoBEM.
-* M2: sol clock for Mars (run-time hour length), cabin gas psychrometrics, gravity in every buoyancy model,
-  runs without a weather file, planetary design days.
-* M3: space radiator plant component and heat-pump lift, PV in vacuum, windows.
+* ✅ M2: planetary weather files (PWF) with no EPW; one-diode PV with a vacuum / CO2 cell energy balance;
+  Li-ion batteries in a zone; regolith periodic equilibrium; Beer-law Mars beam, disk-area horizon, seasonal
+  pressure phases. NASA-class lunar habitat within 0.02 % (sensible) / 0.9 % (latent) of ExoBEM.
+* M3: sol clock for Mars (run-time hour length), cabin gas psychrometrics, gravity in every buoyancy model,
+  planetary design days and sizing, space radiator plant component and heat-pump lift, PV dust soiling, windows.
 
 ## Phase 4 — Dissemination
 
