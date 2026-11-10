@@ -74,8 +74,42 @@ class RegolithColumn:
         i = np.clip(incidence_deg, 0.0, 90.0)
         return self.albedo0 + self.albedo_a * (i / 45.0) ** 3 + self.albedo_b * (i / 90.0) ** 8
 
+    def equilibrate(self, dt, absorbed_short, L_down, z_skin=0.5, n_iter=6, tol=0.02, T_init=None):
+        """Periodic equilibrium of the column for a forcing that repeats with its own length (one year).
+
+        A metre-scale column needs decades to forget its initial state, so plain spin-up is not enough.
+        Each iteration runs one forcing period, takes the period-mean temperature at ``z_skin`` (below
+        the depth reached by the diurnal wave) and rebuilds the deeper profile so that it carries the
+        geothermal flux:  dT/dz = q_geo / k(z, T).  Returns (final state, period-mean profile, z).
+        """
+        z = self.grid()
+        dz = np.diff(z)
+        zc = 0.5 * (z[:-1] + z[1:])
+        kc_seg = self.k_d - (self.k_d - self.k_s) * np.exp(-zc / self.H)
+        i_s = int(np.argmin(np.abs(z - z_skin)))
+        T = T_init
+        prev = None
+        # the layer above z_skin relaxes in ~100 days: run at least one Earth year of forcing per iteration
+        reps = max(1, int(np.ceil(3.15e7 / (len(absorbed_short) * dt))))
+        for _ in range(n_iter):
+            for _r in range(reps):
+                r = self.run(dt, absorbed_short, L_down, T_init=T)
+                T = r["T_final"]
+            mean = r["T_mean_profile"]
+            T = r["T_final"].copy()
+            prof = mean.copy()
+            for j in range(i_s, len(z) - 1):      # integrate the conductive profile downward
+                kk = kc_seg[j] * (1.0 + self.chi * (prof[j] / 350.0) ** 3)
+                prof[j + 1] = prof[j] + self.q_geo * dz[j] / kk
+            T[i_s:] += prof[i_s:] - mean[i_s:]     # shift the deep part, keep the periodic wave above
+            if prev is not None and abs(prof[-1] - prev) < tol:
+                break
+            prev = prof[-1]
+        r = self.run(dt, absorbed_short, L_down, T_init=T)
+        return r["T_final"], r["T_mean_profile"], z
+
     def run(self, dt, absorbed_short, L_down, T_air=None, h_conv=None, T_init=None,
-            spinup_cycles=0, cycle_steps=None, record_depths=(0.0,)):
+            spinup_cycles=0, cycle_steps=None, record_depths=(0.0,), return_state_only=False):
         """Integrate the column.
 
         ``absorbed_short`` is (1-A) G_h [W/m2] per step.  Returns dict with surface
@@ -130,6 +164,8 @@ class RegolithColumn:
             for _ in range(spinup_cycles):
                 for i in range(min(cycle_steps, nsteps)):
                     T = step(T, absorbed_short[i], L_down[i], Tair[i], hc[i])
+        if return_state_only:
+            return T
         idx = [int(np.argmin(np.abs(z - d))) for d in record_depths]
         out = np.zeros((nsteps, len(idx)))
         Tsum = np.zeros(n)

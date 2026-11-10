@@ -8,7 +8,7 @@ gravity-aware convection and radiator-based heat rejection.
 
 ExoBEM is not EnergyPlus and is not endorsed by the U.S. Department of Energy.
 """
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from .model import Model, Zone, InternalGain, Thermostat, ThermalControlSystem  # noqa: F401
 from .simulation import simulate  # noqa: F401

@@ -1,0 +1,11 @@
+{
+ "mli_R_m2K_W": 19.16101814732384,
+ "night_loss_W": 1549.9936941779413,
+ "day_loss_W": 1053.2761999306247,
+ "night_target_W": 1550.0,
+ "day_target_W": 850.0,
+ "day_error_pct": 23.914847050661734,
+ "night_hours": 1072.0,
+ "day_hours": 6920.0,
+ "site": "Moon, 89.45 S 137.3 W (Connecting Ridge area), uniform horizon -1 deg, year 2030"
+}

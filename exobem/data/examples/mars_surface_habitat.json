@@ -1,0 +1,240 @@
+{
+  "simulation": {
+    "name": "mars_surface_habitat",
+    "timestep_s": 3699.0
+  },
+  "site": {
+    "planet": "mars",
+    "name": "Jezero crater",
+    "latitude": 18.44,
+    "longitude": 77.45,
+    "start_utc": "2030-01-01T00:00:00",
+    "duration_sols": 30
+  },
+  "materials": {
+    "beta_cloth_sh": {
+      "thickness": 0.001,
+      "conductivity": 0.15,
+      "density": 1400,
+      "specific_heat": 900,
+      "solar_absorptance": 0.4,
+      "thermal_emissivity": 0.9
+    },
+    "aerogel_blanket_40mm": {
+      "thickness": 0.04,
+      "conductivity": 0.012,
+      "density": 150,
+      "specific_heat": 1000
+    },
+    "rack_al_6mm": {
+      "thickness": 0.006,
+      "conductivity": 120,
+      "density": 2700,
+      "specific_heat": 900
+    }
+  },
+  "constructions": {
+    "shell": [
+      "beta_cloth_sh",
+      "aerogel_blanket_40mm",
+      "aluminum_2219_4mm",
+      "interior_panel_10mm"
+    ],
+    "rack": [
+      "rack_al_6mm"
+    ]
+  },
+  "geometry": {
+    "type": "vertical_cylinder",
+    "radius": 3.684,
+    "height": 5.5,
+    "wall": "shell",
+    "roof": "shell",
+    "floor": "shell",
+    "n_facets": 12,
+    "floor_boundary": "outdoors",
+    "z0": 1.5
+  },
+  "zone": {
+    "cabin_pressure_kPa": 56.5,
+    "o2_fraction": 0.34,
+    "heating_setpoint_C": 20,
+    "cooling_setpoint_C": 25,
+    "leakage_kg_per_day": 0.072,
+    "airlock_cycles_per_day": 1.43,
+    "airlock_loss_kg_per_cycle": 0.35,
+    "humidity_control": true,
+    "rh_min": 0.3,
+    "rh_max": 0.6,
+    "interior_convection": "physical",
+    "internal_mass": [
+      {
+        "name": "racks_stowage",
+        "construction": "rack",
+        "area_m2": 162.9
+      }
+    ]
+  },
+  "gains": [
+    {
+      "name": "crew_sensible",
+      "power_W": 459.0,
+      "radiant_fraction": 0.5,
+      "category": "crew",
+      "schedule": [
+        0.5752,
+        0.5752,
+        0.5752,
+        0.5752,
+        0.5752,
+        0.5752,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.9216,
+        1.5163,
+        1.1111,
+        1.1111,
+        1.1111,
+        0.5752,
+        0.5752
+      ]
+    },
+    {
+      "name": "crew_latent",
+      "power_W": 0,
+      "latent_W": 457.79999999999995,
+      "category": "crew",
+      "schedule": [
+        0.5767,
+        0.5767,
+        0.5767,
+        0.5767,
+        0.5767,
+        0.5767,
+        0.7077,
+        0.7077,
+        0.7077,
+        0.7077,
+        0.7077,
+        0.7077,
+        0.7077,
+        0.7077,
+        0.7077,
+        0.7077,
+        0.7077,
+        4.7392,
+        2.7235,
+        0.7077,
+        0.7077,
+        0.7077,
+        0.5767,
+        0.5767
+      ]
+    },
+    {
+      "name": "life_support",
+      "power_W": 3000.0,
+      "radiant_fraction": 0.3,
+      "electric": true,
+      "coldplate_fraction": 0.5
+    },
+    {
+      "name": "o2_electrolysis",
+      "power_W": 1350.0,
+      "radiant_fraction": 0.3,
+      "electric": true,
+      "heat_fraction": 0.22,
+      "coldplate_fraction": 0.5
+    },
+    {
+      "name": "cabin_fans",
+      "power_W": 500.0,
+      "radiant_fraction": 0.1,
+      "electric": true
+    },
+    {
+      "name": "lighting",
+      "power_W": 570,
+      "radiant_fraction": 0.4,
+      "electric": true,
+      "schedule": [
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.05,
+        0.05
+      ]
+    },
+    {
+      "name": "avionics_equipment",
+      "power_W": 7930.0,
+      "radiant_fraction": 0.3,
+      "electric": true,
+      "coldplate_fraction": 0.6,
+      "schedule": [
+        0.7778,
+        0.7778,
+        0.7778,
+        0.7778,
+        0.7778,
+        0.7778,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        0.7778,
+        0.7778
+      ]
+    }
+  ],
+  "thermal_control": {
+    "radiator_area_m2": 80,
+    "radiator_azimuth": 0
+  },
+  "power": {
+    "fission": {
+      "rated_kWe": 40,
+      "efficiency": 0.181
+    }
+  }
+}

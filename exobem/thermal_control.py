@@ -45,7 +45,10 @@ def evaluate_thermal_control(res, tcs):
     A_side = tcs.radiator_area_m2 / nside
     eps = tcs.radiator_emissivity
     Te = tcs.cabin_loop_temperature_C + KELVIN - tcs.approach_K
-    Qc = res.Q_cooling_W + res.Q_latent_W            # latent heat also ends in the coolant loop
+    Qc = res.Q_cooling_W + np.maximum(res.Q_latent_W, 0.0)   # condensing-HX latent heat ends in the coolant loop
+    if res.Q_coldplate_W is not None:
+        Qc = Qc + res.Q_coldplate_W                            # equipment heat on cold plates
+    Q_humidify = np.maximum(-res.Q_latent_W, 0.0)                 # humidification energy (electric, rare)
     W = np.zeros(env.n)
     T_r = np.zeros(env.n)
     cop = np.full(env.n, np.inf)
@@ -70,7 +73,7 @@ def evaluate_thermal_control(res, tcs):
         T_r[n] = Tr
         cop[n] = c
         W[n] = Qc[n] / c
-    res.electric_W = res.Q_heating_W / tcs.heating_cop + W + tcs.pump_fan_W
+    res.electric_W = res.Q_heating_W / tcs.heating_cop + W + tcs.pump_fan_W + Q_humidify
     res.radiator_T_K = T_r
     res.radiator_sink_K = T_sink.mean(axis=1)
     res.cop_cooling = cop

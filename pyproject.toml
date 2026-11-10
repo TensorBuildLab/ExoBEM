@@ -4,14 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "exobem"
-version = "0.1.0"
+version = "0.2.0"
 description = "ExoBEM: building energy simulation for lunar and Martian habitats (EnergyPlus heat-balance method with planetary extensions)"
 readme = "README.md"
+authors = [{name = "Liang Zhang"}]
+keywords = ["building energy simulation", "EnergyPlus", "Moon", "Mars", "habitat", "space architecture"]
+classifiers = ["Programming Language :: Python :: 3", "License :: OSI Approved :: BSD License", "Topic :: Scientific/Engineering :: Physics", "Intended Audience :: Science/Research"]
 license = {text = "BSD-3-Clause"}
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.24", "scipy>=1.10"]
 
 [project.optional-dependencies]
+plot = ["matplotlib>=3.6"]
 dev = ["pytest", "matplotlib", "python-docx"]
 
 [project.scripts]
@@ -19,6 +23,9 @@ exobem = "exobem.io:main"
 
 [tool.setuptools.packages.find]
 include = ["exobem*"]
+
+[tool.setuptools.package-data]
+exobem = ["data/examples/*.json"]
 
 [project.urls]
 Repository = "https://github.com/TensorBuildLab/ExoBEM"

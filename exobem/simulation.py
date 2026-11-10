@@ -32,7 +32,9 @@ from scipy.linalg import solve_banded
 from .constants import SIGMA, KELVIN
 from . import convection as cv
 from . import gas as _gas
+from .checks import check_model
 from .conduction import GlobalGrid
+from .geometry import Surface
 from .materials import ROUGHNESS_MULT
 from .model import Model, evaluate_schedule
 from .solar import incident_solar
@@ -54,6 +56,7 @@ def approximate_view_factors(surfs):
                 continue
             same = abs(si.tilt - sj.tilt) < 1e-3 and (abs(si.tilt) < 1e-3 or abs(si.tilt - 180) < 1e-3 or
                                                        abs((si.azimuth - sj.azimuth + 180) % 360 - 180) < 1e-3)
+            same = same and not (si.is_internal_mass or sj.is_internal_mass)
             if not same:
                 F[i, j] = A[j]
         F[i] /= F[i].sum()
@@ -98,6 +101,14 @@ class Results:
     radiator_T_K: np.ndarray = None
     radiator_sink_K: np.ndarray = None
     cop_cooling: np.ndarray = None
+    rh_zone: np.ndarray = None           # cabin relative humidity [-] (humidity control on)
+    w_zone: np.ndarray = None            # cabin humidity ratio [kg/kg dry gas]
+    condensate_kg_s: np.ndarray = None   # water removed by the condensing heat exchanger (negative: added)
+    electric_internal_W: np.ndarray = None   # electric power of gains marked electric=True
+    n_envelope: int = 0                  # surfaces [0, n_envelope) are the envelope; the rest internal mass
+    dewpoint_C: np.ndarray = None        # cabin dew point (humidity control on)
+    Q_coldplate_W: np.ndarray = None     # equipment heat collected by cold plates (bypasses the cabin air)
+    n_unconverged: int = 0               # steps that reached max_iterations without meeting the tolerance
 
     def summary(self):
         dt = self.env.dt
@@ -117,6 +128,20 @@ class Results:
         if self.electric_W is not None:
             s["thermal_control_electric_kWh"] = float(self.electric_W.sum() * dt * J2kWh)
             s["thermal_control_peak_electric_W"] = float(self.electric_W.max())
+        if self.electric_internal_W is not None:
+            s["internal_electric_kWh"] = float(self.electric_internal_W.sum() * dt * J2kWh)
+        if self.Q_coldplate_W is not None:
+            s["coldplate_kWh"] = float(self.Q_coldplate_W.sum() * dt * J2kWh)
+        if self.rh_zone is not None:
+            s.update(rh_min=float(self.rh_zone.min()), rh_max=float(self.rh_zone.max()),
+                     condensate_kg=float(np.sum(np.maximum(self.condensate_kg_s, 0)) * dt))
+            margin = self.T_inside_C.min(axis=1) - self.dewpoint_C
+            s["min_surface_minus_dewpoint_K"] = float(margin.min())
+            s["condensation_risk_hours"] = float(np.sum(margin < 0.0) * dt / 3600.0)
+        s["unconverged_steps"] = int(self.n_unconverged)
+        z = self.model.zone
+        days = len(self.time_s) * dt / 86400.0
+        s["cabin_gas_makeup_kg"] = float(z.gas_loss_kg_per_day * days)
         return s
 
     def to_csv(self, path):
@@ -141,7 +166,12 @@ class Results:
 def simulate(model: Model, env, verbose: bool = False) -> Results:
     t_start = time.time()
     zone = model.zone
-    surfs = zone.geometry.surfaces
+    check_model(model, env)
+    n_env = len(zone.geometry.surfaces)
+    surfs = list(zone.geometry.surfaces)
+    for im in zone.internal_mass:          # one face to the zone, the other adiabatic
+        surfs.append(Surface(im.name, im.construction, im.area_m2, 90.0, 0.0, 4.0 * np.sqrt(im.area_m2), 1.0,
+                             "adiabatic", char_length=min(2.0, float(np.sqrt(im.area_m2))), is_internal_mass=True))
     ns = len(surfs)
     dt = env.dt
     if abs(model.timestep_s - dt) > 1e-6:
@@ -184,11 +214,18 @@ def simulate(model: Model, env, verbose: bool = False) -> Results:
     Qc_int = np.zeros(nT)
     Qr_int = np.zeros(nT)
     Q_lat = np.zeros(nT)
+    P_elec_int = np.zeros(nT)
+    Q_cold = np.zeros(nT)
     for g in zone.gains:
         f = evaluate_schedule(g.schedule, env.local_time_h, env.day_index)
-        Qr_int += g.power_W * g.radiant_fraction * f
-        Qc_int += g.power_W * (1 - g.radiant_fraction) * f
+        heat = g.power_W * g.heat_fraction * f
+        to_zone = heat * (1.0 - g.coldplate_fraction)
+        Qr_int += to_zone * g.radiant_fraction
+        Qc_int += to_zone * (1 - g.radiant_fraction)
+        Q_cold += heat * g.coldplate_fraction
         Q_lat += g.latent_W * f
+        if g.electric:
+            P_elec_int += g.power_W * f
     T_heat = evaluate_schedule(zone.thermostat.heating_setpoint_C, env.local_time_h, env.day_index) + KELVIN
     T_cool = evaluate_schedule(zone.thermostat.cooling_setpoint_C, env.local_time_h, env.day_index) + KELVIN
 
@@ -212,7 +249,10 @@ def simulate(model: Model, env, verbose: bool = False) -> Results:
 
     # --- grid --------------------------------------------------------------------------
     T0 = zone.initial_temperature_C + KELVIN
-    grid = GlobalGrid(cons, dt, T0)
+    curv = [s.curvature if (model.curvature == "auto" and not s.is_internal_mass) else None for s in surfs]
+    grid = GlobalGrid(cons, dt, T0, curvatures=curv)
+    ao = grid.outer_area_factor                  # outer / inner face area (1 for planar layers)
+    q_sol_out = q_sol_out * ao[None, :]          # absorbed solar per unit INNER area
     if is_gnd.any():   # start ground-contact constructions on a linear profile
         for s in np.where(is_gnd)[0]:
             o, nn = grid.surface_offsets[s], grid.surface_nnodes[s]
@@ -231,8 +271,21 @@ def simulate(model: Model, env, verbose: bool = False) -> Results:
     out_hci = np.zeros((nT, ns))
     out_hco = np.zeros((nT, ns))
     out_it = np.zeros(nT, dtype=int)
+    n_unconv = 0
 
     has_tdep = len(grid._tdep) > 0
+
+    # --- cabin humidity (condensing heat exchanger) ---------------------------------------
+    hum = zone.humidity_control
+    out_rh = np.zeros(nT) if hum else None
+    out_w = np.zeros(nT) if hum else None
+    out_cond = np.zeros(nT) if hum else None
+    out_dp = np.zeros(nT) if hum else None
+    Q_lat_chx = np.zeros(nT) if hum else None
+    if hum:
+        P_h = zone.cabin_pressure_Pa if zone.cabin_pressure_Pa else 101325.0
+        w_z = float(_gas.humidity_ratio(zone.initial_rh * _gas.saturation_pressure(T0 - KELVIN), P_h, cabin))
+        m_out_dot = zone.gas_loss_kg_per_day / 86400.0     # dry gas lost overboard, replaced dry
 
     # --- warm-up rows ------------------------------------------------------------------
     # (1) pseudo-transient steady-state solve with period-mean boundary conditions
@@ -285,8 +338,9 @@ def simulate(model: Model, env, verbose: bool = False) -> Results:
             rho_o = _gas.moist_air_density(Pout, Tair - KELVIN, w_out)
             mcp = zone.infiltration_ach * zone.geometry.volume / 3600.0 * rho_o * _gas.moist_air_cp(w_out)
             T_sup = Tair
-        elif zone.leakage_kg_per_day > 0:
-            mcp = zone.leakage_kg_per_day / 86400.0 * cabin.cp
+        elif zone.gas_loss_kg_per_day > 0:
+            # cabin gas lost overboard (leakage + airlock venting) is replaced from storage at T_sup
+            mcp = zone.gas_loss_kg_per_day / 86400.0 * cabin.cp
             T_sup = (zone.makeup_gas_temperature_C + KELVIN) if zone.makeup_gas_temperature_C is not None else Tz
         else:
             mcp, T_sup = 0.0, Tz
@@ -326,9 +380,9 @@ def simulate(model: Model, env, verbose: bool = False) -> Results:
             F_tot = Fs_sky + Fgnd + Fs_air
             E_in = eps_o * SIGMA * (Fs_sky * Tsky ** 4 + Fgnd * Tgnd ** 4 + Fs_air * Tair_eff ** 4)
             hr_lin = 4.0 * eps_o * SIGMA * F_tot * To_g ** 3
-            add_diag = np.where(is_out, hco + hr_lin, 0.0)
-            add_rhs = np.where(is_out, qsol_n + hco * Tair_eff + E_in
-                               + 3.0 * eps_o * SIGMA * F_tot * To_g ** 4, 0.0)
+            add_diag = np.where(is_out, (hco + hr_lin) * ao, 0.0)
+            add_rhs = np.where(is_out, qsol_n + (hco * Tair_eff + E_in
+                                                  + 3.0 * eps_o * SIGMA * F_tot * To_g ** 4) * ao, 0.0)
             ab[1, oi] += add_diag
             rhs[oi] += add_rhs
             # ground: Dirichlet
@@ -385,10 +439,31 @@ def simulate(model: Model, env, verbose: bool = False) -> Results:
             To_g, Ti_g, Tz_g = Tnodes[oi], Ti_new, Tz_new
             if change < model.tolerance_K:
                 break
+        else:
+            n_unconv += 1
         grid.T = Tnodes
         Tz = Tz_new
+        if hum:
+            # water-vapour balance of the sealed cabin (implicit):  m_d dw/dt = G - m_out w - R
+            m_d = cabin.density(Tz, P_h) * zone.geometry.volume
+            G_w = (float(Q_lat.mean()) if steady else Q_lat[n]) / _gas.H_FG
+            w_free = (m_d * w_z / dt + G_w) / (m_d / dt + m_out_dot)
+            psat = float(_gas.saturation_pressure(Tz - KELVIN))
+            w_hi = float(_gas.humidity_ratio(zone.rh_max * psat, P_h, cabin))
+            w_lo = float(_gas.humidity_ratio(zone.rh_min * psat, P_h, cabin))
+            w_new = min(max(w_free, w_lo), w_hi)
+            R_chx = m_d * (w_z - w_new) / dt + G_w - m_out_dot * w_new     # kg/s removed (<0: humidified)
+            w_z = w_new
         if k < n_warm:
             continue
+        if hum:
+            out_w[n] = w_z
+            pv = float(_gas.vapour_pressure(w_z, P_h, cabin))
+            out_rh[n] = pv / psat
+            lnr = np.log(max(pv, 1e-6) / 610.94)                 # inverse Magnus (over water)
+            out_dp[n] = 243.04 * lnr / (17.625 - lnr)
+            out_cond[n] = R_chx
+            Q_lat_chx[n] = R_chx * _gas.H_FG
         # inside-face conduction flux (into zone, W/m2)
         q_in = hci * (Ti_g - Tz) + (hr_ij * (Ti_g[:, None] - Ti_g[None, :])).sum(axis=1) - Qr_n * rad_dist / A
         out_Tz[n] = Tz - KELVIN
@@ -404,9 +479,16 @@ def simulate(model: Model, env, verbose: bool = False) -> Results:
             print(f"  step {n}/{nT}  Tz={Tz - KELVIN:7.2f} C  Q={Qsys:9.1f} W  it={it + 1}")
 
     dt = env.dt
-    res = Results(env.time_s, out_Tz, out_Qh, out_Qc, Q_lat, out_Ti, out_To, out_qci, out_hci, out_hco,
-                  (q_sol_out * A[None, :]).sum(axis=1), [s.name for s in surfs], env, model,
-                  wall_time_s=time.time() - t_start, iterations=out_it)
+    res = Results(env.time_s, out_Tz, out_Qh, out_Qc, Q_lat_chx if hum else Q_lat, out_Ti, out_To, out_qci, out_hci,
+                  out_hco, (q_sol_out * A[None, :]).sum(axis=1), [s.name for s in surfs], env, model,
+                  wall_time_s=time.time() - t_start, iterations=out_it, rh_zone=out_rh, w_zone=out_w,
+                  condensate_kg_s=out_cond, electric_internal_W=P_elec_int, n_envelope=n_env, dewpoint_C=out_dp,
+                  Q_coldplate_W=Q_cold,
+                  n_unconverged=n_unconv)
+    if n_unconv:
+        import warnings
+        warnings.warn(f"{n_unconv} time steps did not converge to {model.tolerance_K} K in {model.max_iterations} "
+                      "iterations; consider a smaller time step or more iterations", stacklevel=2)
     if model.thermal_control is not None:
         from .thermal_control import evaluate_thermal_control
         evaluate_thermal_control(res, model.thermal_control)

@@ -59,8 +59,10 @@ def horizon_visible_fraction(elev_deg, sun_az_deg, horizon=None, sun_radius_deg=
     else:
         az_pts, el_pts = np.asarray(horizon[0], float), np.asarray(horizon[1], float)
         h = np.interp(np.asarray(sun_az_deg) % 360.0, az_pts, el_pts, period=360.0)
-    x = (np.asarray(elev_deg) - h + sun_radius_deg) / (2.0 * sun_radius_deg)
-    return np.clip(x, 0.0, 1.0)
+    # area of a uniform disk above a straight horizon:  f = (acos(-x) + x sqrt(1 - x^2)) / pi,
+    # x = (elevation of the disk centre - horizon) / angular radius
+    x = np.clip((np.asarray(elev_deg) - h) / sun_radius_deg, -1.0, 1.0)
+    return (np.arccos(-x) + x * np.sqrt(1.0 - x * x)) / np.pi
 
 
 def incident_solar(env, surfaces, model: str = "isotropic"):
@@ -71,7 +73,7 @@ def incident_solar(env, surfaces, model: str = "isotropic"):
     Fgnd = np.array([s.F_ground for s in surfaces])
     cth = cos_incidence(env.zenith, env.sun_azimuth, tilt, saz)
     dni = env.dni[:, None]
-    beam = dni * np.maximum(cth, 0.0) * env.sun_visible[:, None]
+    beam = dni * np.maximum(cth, 0.0)         # dni already includes the visible fraction of the solar disk
     dhi = env.dhi[:, None]
     if model == "perez":
         F1, F2 = perez_coefficients(env.dhi, env.dni, env.zenith)

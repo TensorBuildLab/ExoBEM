@@ -13,7 +13,8 @@ paper/
 │   ├── ExoBEM_manuscript.docx
 │   ├── build_paper.py       assembles the paper
 │   ├── sections_exobem.py   section text
-│   └── figures/             fig1-fig8 (made by studies/make_figures.py)
+│   ├── make_figures_v2.py   flow and geometry figures
+│   └── figures/             fig1-fig9 (studies/make_figures.py), fig_flow, fig_geometry
 ├── ExoBEM-Core/             Paper 2: the modified EnergyPlus engine
 │   ├── ExoBEM-Core_manuscript.docx
 │   ├── build_paper_core.py  assembles the paper
@@ -28,7 +29,7 @@ paper/
 
 | Paper | Content | Length |
 |---|---|---|
-| 1. ExoBEM | Planetary physics, verification against EnergyPlus 23.2 and planetary reference data, Moon/Mars case studies | ~21 pages, 8 figures, 8 tables |
+| 1. ExoBEM | Factor analysis, method and coordination, comparison with EnergyPlus, sealed cabin, weather format, power systems, verification, NASA-class Moon/Mars case studies, tutorial appendix | ~33 pages, 11 figures, 11 tables |
 | 2. ExoBEM-Core | Audit of Earth assumptions in EnergyPlus v26.2, planetary mode, Earth bit-for-bit regression, cross-verification against ExoBEM | ~17 pages, 4 figures, 5 tables |
 
 ## Building
@@ -48,4 +49,4 @@ verification runs (`EXOBEM_CORE`, `EXOBEM_CORE_RUNS`); the paper itself only nee
 
 Cross-references in the section text are written as `@fig:name`, `@tab:name`, `@sec:name` or `@eq:name`
 (`@[fig:name]a` when a letter follows) and are numbered in a second build pass by `docxkit.build_two_pass`.
-The archived combined paper reuses the section text of both papers, so it still builds from the current text.
+The archived combined paper is frozen: its Word file and build script are kept as they were at commit 61efe28, before Paper 1 was revised, and the script no longer builds against the current section text.

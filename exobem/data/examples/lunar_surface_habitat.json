@@ -1,0 +1,249 @@
+{
+  "simulation": {
+    "name": "lunar_surface_habitat",
+    "timestep_s": 3600
+  },
+  "site": {
+    "weather_file": "south_pole_30d.pwf"
+  },
+  "materials": {
+    "beta_cloth_sh": {
+      "thickness": 0.001,
+      "conductivity": 0.15,
+      "density": 1400,
+      "specific_heat": 900,
+      "solar_absorptance": 0.4,
+      "thermal_emissivity": 0.9
+    },
+    "mli_10layer_sh": {
+      "resistance": 19.2,
+      "solar_absorptance": 0.4,
+      "thermal_emissivity": 0.9
+    },
+    "rack_al_6mm": {
+      "thickness": 0.006,
+      "conductivity": 120,
+      "density": 2700,
+      "specific_heat": 900
+    }
+  },
+  "constructions": {
+    "shell": [
+      "beta_cloth_sh",
+      "mli_10layer_sh",
+      "aluminum_2219_4mm",
+      "interior_panel_10mm"
+    ],
+    "rack": [
+      "rack_al_6mm"
+    ]
+  },
+  "geometry": {
+    "type": "vertical_cylinder",
+    "radius": 3.3258,
+    "height": 5.25,
+    "wall": "shell",
+    "roof": "shell",
+    "floor": "shell",
+    "n_facets": 12,
+    "floor_boundary": "outdoors",
+    "z0": 1.5
+  },
+  "zone": {
+    "cabin_pressure_kPa": 56.5,
+    "o2_fraction": 0.34,
+    "heating_setpoint_C": 20,
+    "cooling_setpoint_C": 25,
+    "leakage_kg_per_day": 0.056,
+    "airlock_cycles_per_day": 0.286,
+    "airlock_loss_kg_per_cycle": 0.99,
+    "humidity_control": true,
+    "rh_min": 0.3,
+    "rh_max": 0.6,
+    "interior_convection": "physical",
+    "cabin_air_velocity": 0.15,
+    "internal_mass": [
+      {
+        "name": "racks_stowage",
+        "construction": "rack",
+        "area_m2": 132.7
+      }
+    ]
+  },
+  "gains": [
+    {
+      "name": "crew_sensible",
+      "power_W": 340.4,
+      "radiant_fraction": 0.5,
+      "category": "crew",
+      "schedule": [
+        0.7286,
+        0.7286,
+        0.7286,
+        0.7286,
+        0.7286,
+        0.7286,
+        1.0693,
+        1.0693,
+        1.0693,
+        1.0693,
+        1.0693,
+        1.0693,
+        1.0693,
+        1.0693,
+        1.0693,
+        1.0693,
+        1.0693,
+        1.7744,
+        1.4219,
+        1.0693,
+        1.0693,
+        1.0693,
+        0.7286,
+        0.7286
+      ]
+    },
+    {
+      "name": "crew_latent",
+      "power_W": 0,
+      "latent_W": 215.2,
+      "category": "crew",
+      "schedule": [
+        0.4833,
+        0.4833,
+        0.4833,
+        0.4833,
+        0.4833,
+        0.4833,
+        0.8922,
+        0.8922,
+        0.8922,
+        0.8922,
+        0.8922,
+        0.8922,
+        0.8922,
+        0.8922,
+        0.8922,
+        0.8922,
+        0.8922,
+        4.7955,
+        2.8439,
+        0.8922,
+        0.8922,
+        0.8922,
+        0.4833,
+        0.4833
+      ]
+    },
+    {
+      "name": "life_support",
+      "power_W": 3500.0,
+      "radiant_fraction": 0.3,
+      "electric": true,
+      "category": "eclss",
+      "coldplate_fraction": 0.5
+    },
+    {
+      "name": "o2_electrolysis",
+      "power_W": 900.0,
+      "radiant_fraction": 0.3,
+      "electric": true,
+      "category": "eclss",
+      "heat_fraction": 0.22,
+      "coldplate_fraction": 0.5
+    },
+    {
+      "name": "cabin_fans",
+      "power_W": 500.0,
+      "radiant_fraction": 0.1,
+      "electric": true,
+      "category": "fans"
+    },
+    {
+      "name": "lighting",
+      "power_W": 465,
+      "radiant_fraction": 0.4,
+      "electric": true,
+      "category": "lighting",
+      "schedule": [
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.05,
+        0.05
+      ]
+    },
+    {
+      "name": "avionics_equipment",
+      "power_W": 8635.0,
+      "radiant_fraction": 0.3,
+      "electric": true,
+      "category": "equipment",
+      "coldplate_fraction": 0.6,
+      "schedule": [
+        0.7778,
+        0.7778,
+        0.7778,
+        0.7778,
+        0.7778,
+        0.7778,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        1.1111,
+        0.7778,
+        0.7778
+      ]
+    }
+  ],
+  "thermal_control": {
+    "radiator_area_m2": 96,
+    "radiator_azimuth": 0
+  },
+  "power": {
+    "pv": [
+      {
+        "area_m2": 100,
+        "tracking": "vertical_single_axis",
+        "cell_efficiency": 0.295,
+        "temp_coeff_per_K": -0.0023,
+        "alpha_front": 0.91
+      }
+    ],
+    "battery": {
+      "capacity_kWh": 600,
+      "soc_min": 0.2
+    }
+  }
+}

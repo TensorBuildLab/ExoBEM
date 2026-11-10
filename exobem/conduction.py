@@ -56,13 +56,19 @@ class _Cell:
 class GlobalGrid:
     """Stacked node grid for all heat-transfer surfaces of a model."""
 
-    def __init__(self, constructions: List[Construction], dt: float, T_init):
+    def __init__(self, constructions: List[Construction], dt: float, T_init, curvatures=None):
+        """``curvatures``: per surface ``None`` (planar) or ``(kind, r_inner)`` with kind ``cylinder`` or
+        ``sphere``; the layers then lie between r_inner and r_inner + total thickness, and every
+        conductance and capacitance is per unit INNER area (exact shell conductances)."""
         self.dt = dt
         self.surface_offsets = []
         self.surface_nnodes = []
         seg_mat, seg_h, seg_left = [], [], []
+        seg_kfac, node_cfac_l, node_cfac_r = [], [], []
+        self.outer_area_factor = []
         node_count = 0
-        for c in constructions:
+        curvatures = curvatures or [None] * len(constructions)
+        for c, curv in zip(constructions, curvatures):
             off = node_count
             cells = []
             for lay in c.layers:
@@ -72,10 +78,39 @@ class GlobalGrid:
                     a = lay.conductivity / (lay.density * lay.specific_heat)
                     for h in layer_cells(lay.thickness, a, dt):
                         cells.append(_Cell(lay, float(h)))
+            hs = np.array([cl.h for cl in cells])
+            L = float(hs.sum())
+            p_edge = np.concatenate([[0.0], np.cumsum(hs)])        # from the outer face inward
             for i, cell in enumerate(cells):
                 seg_mat.append(cell.mat)
                 seg_h.append(cell.h)
                 seg_left.append(off + i)
+                if curv is None or cell.h <= 0:
+                    kf = cf_l = cf_r = 1.0
+                    if curv is not None:     # massless layer: area factor at its radius
+                        kind, ri = curv
+                        r = ri + (L - p_edge[i])
+                        kf = cf_l = cf_r = (r / ri) if kind == "cylinder" else (r / ri) ** 2
+                else:
+                    kind, ri = curv
+                    r1, r2 = ri + (L - p_edge[i + 1]), ri + (L - p_edge[i])      # inner, outer radius of the cell
+                    rm_l, rm_r = 0.75 * r2 + 0.25 * r1, 0.25 * r2 + 0.75 * r1    # half-cell centroids
+                    if kind == "cylinder":
+                        kf = cell.h / (ri * np.log(r2 / r1))       # exact: k / (ri ln(r2/r1)) per inner area
+                        cf_l, cf_r = rm_l / ri, rm_r / ri
+                    elif kind == "sphere":
+                        kf = r1 * r2 / ri ** 2                      # exact: k r1 r2 / (ri^2 h)
+                        cf_l, cf_r = (rm_l / ri) ** 2, (rm_r / ri) ** 2
+                    else:
+                        raise ValueError(f"unknown curvature {kind}")
+                seg_kfac.append(kf)
+                node_cfac_l.append(cf_l)
+                node_cfac_r.append(cf_r)
+            if curv is None:
+                self.outer_area_factor.append(1.0)
+            else:
+                kind, ri = curv
+                self.outer_area_factor.append(((ri + L) / ri) if kind == "cylinder" else ((ri + L) / ri) ** 2)
             n_nodes = len(cells) + 1
             self.surface_offsets.append(off)
             self.surface_nnodes.append(n_nodes)
@@ -91,6 +126,10 @@ class GlobalGrid:
         self.seg_massless = np.array([m.is_massless for m in seg_mat])
         self.seg_k = np.array([0.0 if m.is_massless else m.conductivity for m in seg_mat])
         self.seg_R = np.array([m.resistance if m.is_massless else 0.0 for m in seg_mat])
+        self.seg_kfac = np.array(seg_kfac)
+        self.seg_cfac_l = np.array(node_cfac_l)
+        self.seg_cfac_r = np.array(node_cfac_r)
+        self.outer_area_factor = np.array(self.outer_area_factor)
         self.seg_rho = np.array([0.0 if m.is_massless else m.density for m in seg_mat])
         self.seg_cp = np.array([0.0 if m.is_massless else m.specific_heat for m in seg_mat])
         # group temperature-dependent segments by material object
@@ -118,10 +157,10 @@ class GlobalGrid:
                 cp_right[ix] = m.cp(Tr)
         K = np.where(self.seg_massless, 1.0 / np.where(self.seg_R > 0, self.seg_R, 1.0),
                      k / np.where(self.seg_h > 0, self.seg_h, 1.0))
-        self.K = K
+        self.K = K * self.seg_kfac
         C = np.zeros(self.N)
-        np.add.at(C, self.seg_left, 0.5 * self.seg_rho * cp_left * self.seg_h)
-        np.add.at(C, self.seg_left + 1, 0.5 * self.seg_rho * cp_right * self.seg_h)
+        np.add.at(C, self.seg_left, 0.5 * self.seg_rho * cp_left * self.seg_h * self.seg_cfac_l)
+        np.add.at(C, self.seg_left + 1, 0.5 * self.seg_rho * cp_right * self.seg_h * self.seg_cfac_r)
         self.C = C
 
     def base_matrix(self, dt=None):

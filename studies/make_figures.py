@@ -182,7 +182,7 @@ def fig_environments():
     fig, axs = plt.subplots(2, 3, figsize=(7.4, 4.0), sharex="col")
     SOL = 88775.244 / 86400
     sets = [(me, "Moon, equator (2 lunations)", 1.0, "Earth days"),
-            (mp, "Moon, south-polar ridge (60 d)", 1.0, "Earth days"),
+            (mp, "Moon, south-polar ridge (first 60 d)", 1.0, "Earth days"),
             (ma, "Mars, Jezero (5 sols, Ls ≈ 0°)", 1 / SOL, "Sols")]
     for j, (d, title, scale, xl) in enumerate(sets):
         t = d["t_days"] * scale
@@ -194,7 +194,7 @@ def fig_environments():
             m = np.ones_like(t, bool)
         ax = axs[0, j]
         ax.plot(t[m], d["ghi"][m], color=C[3], label="global horizontal")
-        ax.plot(t[m], (d["dni"] * d["sun_visible"])[m], color=C[0], lw=1.0, label="beam normal")
+        ax.plot(t[m], d["dni"][m], color=C[0], lw=1.0, label="beam normal")
         if j == 2:
             ax.plot(t[m], d["dhi"][m], color=C[2], lw=1.0, label="diffuse horizontal")
         ax.set_title(title, fontsize=8.5)
@@ -219,35 +219,38 @@ def fig_moon_habitat():
     d = L("moon_equator")
     names = list(d["names"])
     t = d["t_days"]
-    fig, axs = plt.subplots(3, 1, figsize=(7.2, 5.4), sharex=True)
+    fig, axs = plt.subplots(3, 1, figsize=(7.2, 5.6), sharex=True)
     ax = axs[0]
-    for i, (nm, lab) in enumerate((("shell_00", "top facet (tilt 11°)"), ("shell_03", "side facet, south (tilt 79°)"),
-                                   ("end_a", "end cap, east"), ("end_b", "end cap, west"))):
+    for i, (nm, lab) in enumerate((("roof", "roof"), ("wall_05", "wall facing south"), ("wall_02", "wall facing east"),
+                                   ("wall_08", "wall facing west"), ("floor", "floor (faces the regolith)"))):
         k = names.index(nm)
-        ax.plot(t, d["Tout"][:, k] + 273.15, color=C[i], label=lab)
+        ax.plot(t, d["Tout"][:, k] + 273.15, color=C[i], label=lab, lw=1.2)
+    ax.plot(t, d["T_ground"], color=MUTED, lw=0.9, ls=":", label="regolith surface")
     ax.set_ylabel("Outer surface (K)")
-    ax.set_title("(a) Regolith-cover surface temperatures")
-    ax.legend(ncol=4, loc="upper center", bbox_to_anchor=(0.5, 1.0), fontsize=6.8)
-    ax.set_ylim(80, 470)
+    ax.set_title("(a) Outer surface temperatures of the MLI-insulated habitat")
+    ax.legend(ncol=3, loc="upper center", bbox_to_anchor=(0.5, 1.02), fontsize=6.5)
+    ax.set_ylim(60, 470)
     ax = axs[1]
-    ax.plot(t, d["Qc"] / 1000, color=C[0], label="sensible cooling")
-    ax.plot(t, d["Qh"] / 1000, color=C[1], label="heating")
-    ax.plot(t, d["Qlat"] / 1000, color=C[2], lw=1.0, label="latent (crew)")
-    ax.set_ylabel("Load (kW)")
-    ax.set_title("(b) Ideal thermal loads (cabin 18–27 °C)")
-    ax.set_ylim(-0.1, 4.2)
-    ax.legend(ncol=3, loc="upper right")
+    ax.plot(t, d["Qc"] / 1000, color=C[0], label="cabin air (sensible)")
+    ax.plot(t, d["Qcold"] / 1000, color=C[2], label="cold plates")
+    ax.plot(t, np.maximum(d["Qlat"], 0) / 1000, color=C[3], lw=1.0, label="latent (condensing HX)")
+    ax.plot(t, d["P_int"] / 1000, color=INK2, lw=0.9, ls="--", label="electric power inside the shell")
+    ax.set_ylabel("Power (kW)")
+    ax.set_title("(b) Heat collected by the thermal control system (cabin 20–25 °C, RH ≤ 60 %)")
+    ax.set_ylim(0, 21)
+    ax.legend(ncol=4, loc="upper center", fontsize=6.4)
     ax = axs[2]
-    ax.plot(t, d["T_sink"], color=C[6], label="radiator sink (N/S-facing, vertical)")
+    ax.plot(t, d["T_sink"], color=C[6], label="sink, vertical radiator facing N/S")
     rew = np.load(RES / "radiator_EW.npz")
-    ax.plot(rew["t_days"], rew["T_sink"], color=C[4], label="radiator sink (E/W-facing, vertical)")
+    ax.plot(rew["t_days"], rew["T_sink"], color=C[4], label="sink, vertical radiator facing E/W")
+    ax.plot(t, d["T_rad"], color=C[1], lw=1.0, label="radiator temperature (N/S)")
     ax.axhline(273.15 + 2 - 5, color=INK2, lw=0.8, ls=":")
     ax.text(0.5, 273.15 - 3 + 6, "evaporator 270 K", ha="left", fontsize=6.5, color=INK2)
     ax.set_ylabel("Temperature (K)")
     ax.set_xlabel("Elapsed time (Earth days from 2030-01-01)")
-    ax.set_title("(c) Radiator sink temperature")
-    ax.set_ylim(60, 400)
-    ax.legend(loc="upper right", fontsize=6.8, ncol=2)
+    ax.set_title("(c) Radiator sink and operating temperature")
+    ax.set_ylim(60, 420)
+    ax.legend(loc="upper right", fontsize=6.5, ncol=2)
     fig.tight_layout()
     save(fig, "fig5_moon_habitat.png")
 
@@ -285,14 +288,14 @@ def fig_mars_year():
     ax.legend(loc="lower left")
     ax = axs[2]
     for i, (d, lab) in enumerate(((a, "nominal"), (b, "dust storm"))):
-        _, _, qh = daily(d, "Qh")
         _, _, qc = daily(d, "Qc")
-        ax.plot(s, qc / 1000, color=C[i], label=f"cooling, {lab}")
-        ax.plot(s, qh / 1000, color=C[i], ls="--", lw=1.0, label=f"heating, {lab}")
-    ax.set_ylabel("Sol-mean load (kW)")
+        _, _, el = daily(d, "elec")
+        ax.plot(s, qc / 1000, color=C[i], label=f"cabin cooling, {lab}")
+        ax.plot(s, el / 1000, color=C[i], ls="--", lw=1.0, label=f"thermal-control power, {lab}")
+    ax.set_ylabel("Sol-mean (kW)")
     ax.set_xlabel("Sol of Mars year (Ls = 0° at sol 0)")
-    ax.set_title("(c) Habitat ideal loads")
-    ax.set_ylim(-0.1, 2.6)
+    ax.set_title("(c) Habitat cabin cooling load and thermal-control electricity")
+    ax.set_ylim(bottom=0)
     ax.legend(ncol=2, loc="lower right", fontsize=6.8)
     # secondary Ls ticks as text on top axis
     top = axs[0].secondary_xaxis("top")
@@ -368,8 +371,44 @@ def fig_convection():
     save(fig, "fig8_convection.png")
 
 
+
+# --------------------------------------------------------------------------- power
+def fig_power():
+    rep = json.loads((RES / "case_studies.json").read_text())["power"]
+    fig, axs = plt.subplots(1, 2, figsize=(7.4, 3.0), gridspec_kw=dict(width_ratios=[1.0, 1.25]))
+    ax = axs[0]
+    labs = {"moon_pole": "Moon, south pole", "moon_equator": "Moon, equator", "mars_jezero": "Mars, Jezero",
+            "mars_jezero_storm": "Mars, dust storm"}
+    for i, (k, lab) in enumerate(labs.items()):
+        tr = rep[k]["tradeoff"]["Li-ion"]
+        ax.plot(rep[k]["tradeoff"]["multiplier"], np.array(tr["storage_kWh"]) / 1000, color=C[i], marker="o", ms=3, label=lab)
+    ax.set_yscale("log")
+    ax.set_xlabel("PV area / energy-balance PV area")
+    ax.set_ylabel("Usable storage needed (MWh)")
+    ax.set_title("(a) Storage versus PV oversizing (Li-ion)")
+    ax.legend(fontsize=6.5)
+    ax = axs[1]
+    for i, k in enumerate(labs):
+        d = np.load(RES / f"power_{k}.npz")
+        if "A2_soc" not in d:
+            continue
+        t = d["t_days"]
+        day = np.floor(t).astype(int)                      # daily minimum: the nightly cycle on Mars is too
+        n = day.max() + 1                                  # fast to show at this scale
+        dmin = np.full(n, np.nan)
+        dmin = np.array([d["A2_soc"][day == j].min() if np.any(day == j) else np.nan for j in range(n)])
+        ax.plot(np.arange(n) + 0.5, dmin, color=C[i], lw=1.1, label=labs[k])
+    ax.set_ylim(0, 1.05)
+    ax.set_xlabel("Elapsed time (Earth days)")
+    ax.set_ylabel("Daily minimum state of charge")
+    ax.set_title("(b) Battery charge, PV at 2× the balance area")
+    ax.legend(fontsize=6.3, loc="lower left")
+    fig.tight_layout()
+    save(fig, "fig9_power.png")
+
 if __name__ == "__main__":
     fig_architecture()
+    fig_power()
     fig_verification()
     fig_environment_models()
     fig_environments()

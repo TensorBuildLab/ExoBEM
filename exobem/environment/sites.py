@@ -90,7 +90,7 @@ def earth_from_epw(path, dt=600.0, ground_reflectance=0.2, n_days=365, start_day
 # =================================================================================
 
 def moon_site(latitude, longitude, start_utc, duration_days, dt=1800.0, horizon=None,
-              regolith: RegolithColumn | None = None, spinup_lunations=6, deep_depth=3.0):
+              regolith: RegolithColumn | None = None, spinup_lunations=6, deep_depth=3.0, equilibrate=True):
     """Lunar surface environment: vacuum, Sun as a finite disk, 3 K sky, regolith ground."""
     n = int(round(duration_days * 86400.0 / dt))
     t_end = (np.arange(n) + 1) * dt
@@ -105,17 +105,29 @@ def moon_site(latitude, longitude, start_utc, duration_days, dt=1800.0, horizon=
     ghi = dni * mu
     col = regolith or RegolithColumn()
     A = col.albedo(sp.zenith_deg)
-    # spin up on a whole synodic month preceding the start
+    # 1) periodic equilibrium of the whole column for the year before the start (1 h steps): metre depths
+    #    need decades to forget an initial guess, so they are set from the geothermal-flux profile below
+    #    the reach of the lunar-day wave (RegolithColumn.equilibrate)
+    T0 = None
+    if equilibrate:
+        dty = 3600.0
+        ny = int(round(365.25 * 86400.0 / dty))
+        jd_y = jd0 - 365.25 + (np.arange(ny) + 0.5) * dty / 86400.0
+        spy = moon_eph.sun_position(jd_y, latitude, longitude)
+        vis_y = horizon_visible_fraction(90 - spy.zenith_deg, spy.azimuth_deg, horizon)
+        g_y = TSI_1AU / spy.distance_au ** 2 * vis_y * np.maximum(np.cos(np.radians(spy.zenith_deg)), 0)
+        T0, _, _ = col.equilibrate(dty, (1 - col.albedo(spy.zenith_deg)) * g_y, np.zeros(ny), z_skin=0.15)
+    # 2) spin up the near-surface layer on the synodic month preceding the start at the run's time step
     n_cyc = int(round(moon_eph.SYNODIC_MONTH_DAYS * 86400.0 / dt))
     jd_spin = jd0 - moon_eph.SYNODIC_MONTH_DAYS + (np.arange(n_cyc) + 0.5) * dt / 86400.0
     sps = moon_eph.sun_position(jd_spin, latitude, longitude)
     vis_s = horizon_visible_fraction(90 - sps.zenith_deg, sps.azimuth_deg, horizon)
     g_s = TSI_1AU / sps.distance_au ** 2 * vis_s * np.maximum(np.cos(np.radians(sps.zenith_deg)), 0)
-    spin = col.run(dt, (1 - col.albedo(sps.zenith_deg)) * g_s, np.zeros(n_cyc), spinup_cycles=spinup_lunations,
-                   cycle_steps=n_cyc)
+    spin = col.run(dt, (1 - col.albedo(sps.zenith_deg)) * g_s, np.zeros(n_cyc), T_init=T0,
+                   spinup_cycles=1 if equilibrate else spinup_lunations, cycle_steps=n_cyc)
     res = col.run(dt, (1 - A) * ghi, np.zeros(n), T_init=spin["T_final"], record_depths=(0.0, deep_depth))
     T_g = res["T_depths"][:, 0]
-    T_deep = np.full(n, float(np.mean(spin["T_mean_profile"][-5:])))
+    T_deep = np.full(n, float(np.mean(res["T_depths"][:, 1])))
     lunar_time = sp.extra["lunar_time_h"] % 24.0
     # crew schedules on the Moon run on Earth (UTC) time
     utc_h = ((jd0 + t_end / 86400.0 + 0.5) % 1.0) * 24.0
@@ -154,13 +166,13 @@ def mars_dust_tau(Ls, tau_aphelion=0.45, tau_perihelion=0.85, Ls_peak=245.0, wid
     return tau
 
 
-def mars_surface_pressure(Ls, P_mean=720.0, a1=0.074, phi1=-26.0, a2=0.055, phi2=110.0):
+def mars_surface_pressure(Ls, P_mean=720.0, a1=0.074, phi1=154.0, a2=0.055, phi2=290.0):
     """Seasonal surface pressure [Pa] as a two-harmonic fit (Viking-type CO2 cycle).
 
     P = P_mean [1 + a1 sin(Ls + phi1) + a2 sin(2 Ls + phi2)].  The default shape puts the
-    minimum near Ls~150 (southern-winter cap growth) and the maximum near Ls~250-260,
-    with a secondary maximum near Ls~50, matching Viking/REMS/MEDA climatology; P_mean is
-    site dependent (Jezero ~720 Pa, Gale ~800 Pa).
+    minimum at Ls = 157 (growth of the southern seasonal CO2 cap), the maximum at Ls = 269 and a
+    secondary maximum at Ls = 64, matching Viking/REMS/MEDA climatology (range 0.89-1.12 P_mean);
+    P_mean is site dependent (Jezero ~710 Pa, Gale ~800 Pa).
     """
     L = np.radians(np.asarray(Ls, float))
     return P_mean * (1 + a1 * np.sin(L + np.radians(phi1)) + a2 * np.sin(2 * L + np.radians(phi2)))
@@ -170,7 +182,7 @@ def mars_site(latitude, longitude, start_utc, duration_sols, dt=1800.0, tau=None
               P_mean=710.0, thermal_inertia=350.0, albedo=0.14, dust_w0=0.885, dust_g=0.74,
               air_coupling=0.6, air_lag_h=0.5, sky_emissivity=(0.08, 0.125), dust_reemission=0.45,
               wind_mean=3.2, wind_amp=2.0,
-              spinup_sols=30, deep_depth=3.0, horizon=None):
+              spinup_sols=30, deep_depth=3.0, horizon=None, equilibrate=True):
     """Martian surface environment.
 
     * Sun from Mars24 (Allison & McEwen 2000); TOA irradiance 1361/r^2.
@@ -208,8 +220,13 @@ def mars_site(latitude, longitude, start_utc, duration_sols, dt=1800.0, tau=None
         vis = horizon_visible_fraction(90 - sp.zenith_deg, sp.azimuth_deg, horizon, 0.2666 / sp.distance_au)
         up = (mu > 0).astype(float)
         G_top = S * np.maximum(mu, 0.0)
-        direct_h = G_top * dfrac * vis * up
-        diffuse_h = S * mu_eff * sfrac * up * np.maximum(mu, 0) / np.maximum(mu_eff, 1e-6)
+        # The delta-Eddington solution gives the total (direct + diffuse) flux; its "direct" part contains
+        # the forward-scattering peak (delta scaling).  The beam a surface sees from the solar disk follows
+        # Beer's law with the true optical depth; the forward-scattered peak is counted as diffuse.
+        total_h = G_top * (dfrac + sfrac) * up
+        beer = np.exp(-tt * m)
+        direct_h = G_top * beer * vis * up
+        diffuse_h = np.maximum(total_h - G_top * beer * up, 0.0)
         dni = np.where(mu > 0.0, direct_h / np.maximum(mu, 1e-6), 0.0)
         return sp, Ls, tt, dni, diffuse_h, direct_h + diffuse_h, vis, G_top
 
@@ -235,9 +252,23 @@ def mars_site(latitude, longitude, start_utc, duration_sols, dt=1800.0, tau=None
         Tg_lag = np.concatenate([np.full(lag, T_g[0]), T_g[:-lag]]) if lag > 0 else T_g
         return Tg_mean + air_coupling * (Tg_lag - Tg_mean)
 
-    # spin-up on the first sol (repeated), then fixed-point iteration ground <-> air <-> sky emission
+    # 1) periodic equilibrium of the whole column for the Mars year before the start (1 h steps); the
+    #    annual wave reaches ~1.3 m, so metre depths need several Mars years to forget an initial guess
+    T0 = None
+    if equilibrate:
+        dty = 3600.0
+        ny = int(round(668.6 * sol / dty))
+        jd_y = jd0 - ny * dty / 86400.0 + (np.arange(ny) + 0.5) * dty / 86400.0
+        _, _, tau_y, _, _, ghi_y, _, Gtop_y = sun_and_flux(jd_y)
+        ky = max(1, int(round(sol / dty)))
+        dy = np.concatenate([np.full(ky, np.mean(Gtop_y[:ky] - ghi_y[:ky])), Gtop_y - ghi_y])
+        cy = np.cumsum(dy)
+        Ld_y = dust_reemission * (cy[ky:] - cy[:-ky]) / ky + np.clip(e0 + e1 * tau_y, 0.05, 0.6) * SIGMA * 210.0 ** 4
+        T0, _, _ = col.equilibrate(dty, (1 - albedo) * ghi_y, Ld_y, z_skin=0.25)
+    # 2) spin-up on the first sol (repeated), then fixed-point iteration ground <-> air <-> sky emission
     L_down = eps_sky * SIGMA * 210.0 ** 4 + L_dust
-    spin = col.run(dt, (1 - albedo) * ghi[:n_sol], L_down[:n_sol], spinup_cycles=spinup_sols, cycle_steps=n_sol)
+    spin = col.run(dt, (1 - albedo) * ghi[:n_sol], L_down[:n_sol], T_init=T0,
+                   spinup_cycles=min(spinup_sols, 5) if equilibrate else spinup_sols, cycle_steps=n_sol)
     for _ in range(4):
         res = col.run(dt, (1 - albedo) * ghi, L_down, T_init=spin["T_final"], record_depths=(0.0, deep_depth))
         T_g = res["T_surface"]
@@ -257,7 +288,7 @@ def mars_site(latitude, longitude, start_utc, duration_sols, dt=1800.0, tau=None
     env = Environment(
         planet="mars", latitude=latitude, longitude=longitude, dt=dt, time_s=t_end, jd_utc=jd0 + t_end / 86400.0,
         zenith=sp.zenith_deg, sun_azimuth=sp.azimuth_deg, dni=dni, dhi=dhi, ghi=ghi, sun_visible=vis,
-        T_air=T_air, T_sky=T_sky, T_ground=T_g, T_deep=np.full(n, float(res["T_mean_profile"][-1])),
+        T_air=T_air, T_sky=T_sky, T_ground=T_g, T_deep=np.full(n, float(np.mean(res["T_depths"][:, 1]))),
         wind_speed=wind, wind_dir=np.full(n, 180.0), pressure=P, ground_albedo=np.full(n, albedo),
         gravity=MARS_GRAVITY, gas=_gas.MARS_CO2, local_time_h=lmst,
         day_index=np.floor(msd - msd[0]).astype(int),

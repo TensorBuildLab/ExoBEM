@@ -69,7 +69,8 @@ def cabin_gas(o2_fraction: float = 0.21) -> Gas:
     # O2 is slightly more viscous/conductive than N2; mixture rule kept linear.
     mu = 1.716e-5 * (1 + 0.12 * (x - 0.21))
     k = 0.0241 * (1 + 0.02 * (x - 0.21))
-    cp = 1005.0 - 120.0 * (x - 0.21)
+    yo2 = x * 0.031999 / M                       # O2 mass fraction
+    cp = yo2 * 918.0 + (1 - yo2) * 1040.0         # cp of O2 and N2 at 300 K (NIST), mass weighted
     return Gas(f"cabin_o2_{x:.3f}", M, cp, mu, k, 273.15, 110.4, 194.0)
 
 
@@ -96,3 +97,37 @@ def moist_air_cp(w: float) -> float:
 def moist_air_density(P: float, T_C: float, w: float) -> float:
     """Moist air density [kg/m3] as used by EnergyPlus (PsyRhoAirFnPbTdbW)."""
     return P / (287.0 * (T_C + 273.15) * (1.0 + 1.6077687 * w))
+
+
+# ------------------------------------------------------------------------------ cabin humidity
+M_WATER = 0.018015          # kg/mol
+H_FG = 2.454e6              # latent heat of vaporisation of water at ~20 C [J/kg]
+
+
+def saturation_pressure(T_C):
+    """Saturation vapour pressure of water [Pa] over liquid (T >= 0 C) or ice (T < 0 C).
+
+    Magnus form with the Alduchov & Eskridge (1996) coefficients; within 0.4 % of the
+    Hyland-Wexler equation between -40 and 50 C.  It does not depend on the total pressure
+    or on the gas the vapour is mixed with (Dalton's law), so it holds in any cabin atmosphere.
+    """
+    import numpy as _np
+    T_C = _np.asarray(T_C, float)
+    liq = 610.94 * _np.exp(17.625 * T_C / (T_C + 243.04))
+    ice = 611.21 * _np.exp(22.587 * T_C / (T_C + 273.86))
+    return _np.where(T_C >= 0.0, liq, ice)
+
+
+def humidity_ratio(p_v, P, gas: Gas):
+    """Humidity ratio [kg water / kg dry cabin gas] for vapour pressure p_v in total pressure P.
+
+    w = (M_w / M_gas) p_v / (P - p_v): the molar-mass ratio follows the cabin gas, so a
+    70.3 kPa / 26.5 % O2 cabin has 0.6197 instead of Earth air's 0.6220.
+    """
+    return (M_WATER / gas.molar_mass) * p_v / (P - p_v)
+
+
+def vapour_pressure(w, P, gas: Gas):
+    """Inverse of :func:`humidity_ratio`."""
+    eps = M_WATER / gas.molar_mass
+    return w * P / (eps + w)
