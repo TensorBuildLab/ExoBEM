@@ -17,6 +17,16 @@ from docxkit import build_two_pass  # noqa: E402
 from refs import REFS  # noqa: E402
 from sections_exobem import (B, CAL, EPLUS_MAX_DIFF, P, f1, f600, f900, f2, mjz, mpo, meq, v600, v900)  # noqa: E402
 
+# Applied Energy: 3-5 highlights, at most 85 characters each, also submitted as a separate file
+HIGHLIGHTS = [
+    "ExoBEM adapts the EnergyPlus heat balance to sealed habitats on the Moon and Mars.",
+    f"Earth-mode verification against EnergyPlus 23.2: annual loads within {EPLUS_MAX_DIFF:.1f}%.",
+    "Habitat loads are coupled with PV, battery, fuel-cell and fission power systems.",
+    "Sealed-cabin model: no infiltration; leakage, humidity and condensation risk tracked.",
+    "Night and dust-storm storage dominates solar power; a 40 kWe fission unit covers all.",
+]
+assert 3 <= len(HIGHLIGHTS) <= 5 and all(len(h) <= 85 for h in HIGHLIGHTS), [len(h) for h in HIGHLIGHTS]
+
 
 def build(m):
     # ======================================================================= title page
@@ -29,35 +39,27 @@ def build(m):
            align="center", size=9, italic=True, space_after=14)
 
     m.heading("Highlights", numbered=False)
-    m.bullets([
-        "ExoBEM re-implements the EnergyPlus heat balance for sealed habitats on the Moon and Mars.",
-        f"Earth-mode verification against EnergyPlus 23.2: annual loads within {EPLUS_MAX_DIFF:.1f}%.",
-        "A factor-by-factor analysis of Earth, Moon and Mars drives the physics, inputs and checks.",
-        "Cabin humidity, condensation risk, leakage and power systems are simulated with the building.",
-        "NASA-class habitats: heat rejection, condensation and storage across darkness drive the design.",
-    ])
+    m.bullets(HIGHLIGHTS)
 
     m.heading("Abstract", numbered=False)
     m.para(
         "Building energy simulation (BES) programs such as EnergyPlus encode Earth in their physics: a 24-hour day, "
-        "terrestrial solar geometry, outdoor air as the convective medium, a source of ventilation and of humidity, and "
-        "empirical sky and ground models. None of these hold for the sealed, pressurized habitats that crews will live in "
-        "on the Moon and Mars. This paper presents ExoBEM, an open-source Python BES tool that re-implements the EnergyPlus "
-        "heat-balance method and, starting from a factor-by-factor analysis of how the Moon and Mars differ from Earth, "
-        "adds planetary ephemerides, airless and dusty-CO2 skies, regolith ground models brought to periodic "
-        "equilibrium, gas-, pressure- and gravity-aware convection, curved regolith shields, a sealed-cabin model with "
-        "leakage, airlock losses, a vapour balance and condensation checks, radiator heat rejection and an electric "
-        "power system with photovoltaics, batteries, regenerative fuel cells and fission. Environments are exchanged "
-        "through a new planetary weather-file format. In Earth mode ExoBEM reproduces EnergyPlus 23.2 for opaque ASHRAE "
-        f"140 cases within {EPLUS_MAX_DIFF:.1f}% in annual loads; its planetary models reproduce Mars24, Diviner, "
-        "Appelbaum–Flood and MEDA reference data, and its envelope model, calibrated to NASA's night-time heat leak of "
-        f"the Artemis surface habitat, predicts the daylight loss within {abs(CAL['day_error_pct']):.0f}%. For a four-crew "
-        "lunar habitat and a six-crew Mars habitat sized from NASA concepts, the habitats are heat-rejection problems "
-        f"({mpo['tcs_heat_kWh_per_day']/24:.1f} kW and {mjz['tcs_heat_kWh_per_day']/24:.1f} kW collected on average). "
-        f"Equatorial lunar radiators need heat-pump lift {100*meq['heat_pump_hours_frac']:.0f}% of the time, a "
-        f"Mars habitat insulated only with aerogel risks condensation for {mjz['condensation_risk_hours']:.0f} hours a "
-        "year, and storage across the lunar night or a Martian dust storm dominates solar power systems, while a "
-        "40 kWe fission unit covers every case.",
+        "terrestrial solar geometry, outdoor air for convection, ventilation and humidity, and empirical sky and ground "
+        "models. None of these hold for the sealed, pressurized habitats that crews will live in on the Moon and Mars. "
+        "This paper presents ExoBEM, an open-source Python BES tool that re-implements the EnergyPlus heat-balance "
+        "method and, starting from a factor-by-factor analysis of how the Moon and Mars differ from Earth, adds "
+        "planetary ephemerides, airless and dusty-CO2 skies, regolith ground in periodic equilibrium, gas-, pressure- "
+        "and gravity-aware convection, curved regolith shields, a sealed cabin with leakage, airlock losses and "
+        "condensation checks, radiator heat rejection and a power system with photovoltaics, batteries, regenerative "
+        "fuel cells and fission. Environments are exchanged through a new planetary weather-file format. In Earth mode "
+        f"ExoBEM reproduces EnergyPlus 23.2 for opaque ASHRAE 140 cases within {EPLUS_MAX_DIFF:.1f}% in annual loads; its "
+        "planetary models reproduce Mars24, Diviner, Appelbaum–Flood and MEDA reference data, and its envelope, "
+        "calibrated to NASA's night-time heat leak of the Artemis surface habitat, predicts the daylight loss within "
+        f"{abs(CAL['day_error_pct']):.0f}%. For four-crew lunar and six-crew Mars habitats sized from NASA concepts, heat "
+        f"rejection dominates ({mpo['tcs_heat_kWh_per_day']/24:.1f} kW and {mjz['tcs_heat_kWh_per_day']/24:.1f} kW on average). "
+        f"Equatorial lunar radiators need heat-pump lift {100*meq['heat_pump_hours_frac']:.0f}% of the time, an "
+        f"aerogel-only Mars habitat risks condensation for {mjz['condensation_risk_hours']:.0f} hours a year, and storage "
+        "across the lunar night or a dust storm dominates solar power, while a 40 kWe fission unit covers every case.",
         space_after=6)
     m.para("**Keywords:** building energy simulation; EnergyPlus; lunar habitat; Mars habitat; heat balance; regolith; "
            "humidity; power systems; space architecture", align="left")
@@ -206,6 +208,13 @@ def main():
     out = HERE / "ExoBEM_manuscript.docx"
     m.save(out)
     print("saved", out, "| cited", len(m.cite_order), "| figs", m.fig_no, "| tables", m.tab_no, "| eqs", m.eq_no)
+    from docx import Document
+    d = Document()
+    d.add_heading("Highlights", level=1)
+    for h in HIGHLIGHTS:
+        d.add_paragraph(h, style="List Bullet")
+    d.save(HERE / "ExoBEM_highlights.docx")
+    print("saved", HERE / "ExoBEM_highlights.docx")
 
 
 if __name__ == "__main__":
