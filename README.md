@@ -60,7 +60,7 @@ print(res.summary())
 | Mars24 worked example; Diviner lunar temperatures; Appelbaum–Flood Mars insolation; MEDA at Jezero | Reproduced (see the paper) |
 | NASA Artemis surface habitat, night heat leak 1550 W / daylight net loss 850 W | Calibrated / 1053 W (+24 %) |
 | Analytic: curved-shell conduction, PV cell in vacuum, cabin vapour balance, erfc conduction, ScriptF | Exact to < 10⁻⁶–10⁻³ |
-| ExoBEM-Core (EnergyPlus fork) on the same weather files | Cooling energy within 0.01 % (Moon) and 0.9 % (Mars) |
+| Thermonaut (independent EnergyPlus fork) on the same weather files | Cooling energy within 0.2 % (Moon) and 1.4 % (Mars) |
 
 Run the test suite with `python -m pytest -q`. To reproduce the EnergyPlus comparison, see
 [Running the EnergyPlus comparison](#running-the-energyplus-comparison).
@@ -98,7 +98,7 @@ docs/                   install guide, tutorial, weather format, factor analysis
 tests/                  analytical, reference-data and EnergyPlus-parity tests
 verification/           EnergyPlus 23.2 comparison (IDF generator + comparison script)
 studies/                case studies and figures for the paper
-paper/                  manuscripts: ExoBEM/ (this tool), ExoBEM-Core/ (C++ engine), archive/
+paper/                  manuscripts: ExoBEM/ (this tool), Thermonaut/ (C++ engine), archive/
 ```
 
 ## Running the EnergyPlus comparison
@@ -110,15 +110,15 @@ for f in verification/energyplus/idf/*.idf; do n=$(basename $f .idf); \
 python verification/compare_energyplus.py
 ```
 
-## C++ companion
+## Related engine: Thermonaut
 
-[ExoBEM-Core](https://github.com/TensorBuildLab/ExoBEM-Core) is a fork of the full EnergyPlus v26.2 engine with
-the same planetary physics. It reads the same PWF weather files, reproduces EnergyPlus bit-for-bit on Earth, and
-agrees with ExoBEM within 1 % on the lunar and Martian habitat cases.
+[Thermonaut](https://github.com/TensorBuildLab/Thermonaut) is a separate project: a fork of the full EnergyPlus
+v26.2 engine with a planetary mode. Neither tool needs the other. Both read PWF weather files, so a design can be
+run in both on the same environment; on the lunar and Martian verification habitats they agree within about 1.5 %.
 
 ## Citation
 
-If you use ExoBEM, please cite the accompanying paper (`paper/ExoBEM/ExoBEM_manuscript.docx`, in preparation) and
+If you use ExoBEM, please cite the accompanying paper (`paper/ExoBEM/ExoBEM_manuscript.docx`, submitted to Applied Energy) and
 the repository, https://github.com/TensorBuildLab/ExoBEM.
 
 ## License

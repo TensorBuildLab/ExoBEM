@@ -1,14 +1,14 @@
 {
- "source": "ExoBEM-Core M2, https://github.com/TensorBuildLab/ExoBEM-Core, branch exobem-core, commit de425b800; planetary/VERIFICATION.md, planetary/DESIGN.md, planetary/audit/*.md",
+ "source": "Thermonaut M2d, https://github.com/TensorBuildLab/Thermonaut, branch thermonaut; planetary/VERIFICATION.md, planetary/DESIGN.md, planetary/audit/*.md",
  "base_version": "26.2.0",
  "source_lines_cc_hh": 720886,
  "diff": {
   "files": 18,
-  "insertions": 1960,
+  "insertions": 2011,
   "deletions": 13,
-  "new_module_lines": 1611,
+  "new_module_lines": 1613,
   "idd_lines": 157,
-  "hook_lines_existing_files": 192,
+  "hook_lines_existing_files": 241,
   "existing_files_touched": 15
  },
  "audit": {
@@ -177,22 +177,37 @@
   "habitat_python": 20.2
  },
  "startup_ablation": {
-  "note": "Sensible cooling over the comparison window, ExoBEM-Core relative to Python ExoBEM, for successive start-up treatments of the CondFD walls",
+  "note": "Sensible cooling over the comparison window, Thermonaut (own environment generator) relative to Python ExoBEM, and the cooling excess in the first hour after warm-up, for successive start-up treatments of the CondFD walls",
+  "columns": [
+   "Start-up treatment of CondFD walls",
+   "Moon cooling vs ExoBEM (%)",
+   "Mars cooling vs ExoBEM (%)",
+   "First-hour cooling excess, Moon / Mars (W)"
+  ],
   "rows": [
    [
     "Walls start at 23 C (EnergyPlus default)",
     null,
-    "+32"
+    "+32",
+    "–"
    ],
    [
     "Steady profile, constant conductivity",
     "-1",
-    "-2.5"
+    "-2.5",
+    "–"
    ],
    [
-    "Steady profile with k(T) and post-warm-up correction (M2)",
+    "Steady k(T) profile, full post-warm-up correction (M2c)",
     "-0.01",
-    "-0.7"
+    "-0.88",
+    "+2383 / +429"
+   ],
+   [
+    "Steady k(T) profile, correction only where warm-up could not reach (M2d)",
+    "-0.16",
+    "-1.21",
+    "-68 / -111"
    ]
   ]
  },

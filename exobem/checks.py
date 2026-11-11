@@ -1,7 +1,7 @@
 """Input checks that encode what makes a planetary habitat different from an Earth building.
 
 ``check_model`` raises :class:`ModelError` for inputs that cannot be physically right off-Earth
-(the ExoBEM counterpart of ExoBEM-Core's input validator) and returns warnings for inputs that
+(the ExoBEM counterpart of Thermonaut's input validator) and returns warnings for inputs that
 are legal but outside NASA habitability limits.
 """
 from __future__ import annotations

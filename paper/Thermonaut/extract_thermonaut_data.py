@@ -1,11 +1,11 @@
-"""Collect the ExoBEM-Core (C++) verification results used by the ExoBEM-Core and combined manuscripts.
+"""Collect the Thermonaut (C++) verification results used by the Thermonaut and combined manuscripts.
 
-    set EXOBEM_CORE=<ExoBEM-Core checkout>      (default ../exo-fork)
-    set EXOBEM_CORE_RUNS=<run folder>            (default ../exo-runs/m2; contains <case>_pwf and <case>_gen run folders
+    set THERMONAUT=<Thermonaut checkout>      (default ../exo-fork)
+    set THERMONAUT_RUNS=<run folder>            (default ../exo-runs/m2d; contains <case>_pwf and <case>_gen run folders
                                                   with eplusout.sql and the comparison.json written by planetary/cases/compare.py)
-    python paper/ExoBEM-Core/extract_core_data.py
+    python paper/Thermonaut/extract_thermonaut_data.py
 
-Writes paper/ExoBEM-Core/data/core_<case>_hourly.csv (hourly C++ and Python series) and paper/ExoBEM-Core/data/core_summary.json.
+Writes paper/Thermonaut/data/core_<case>_hourly.csv (hourly C++ and Python series) and paper/Thermonaut/data/core_summary.json.
 The papers are then built from these files only, so the fork does not have to be present.
 """
 from __future__ import annotations
@@ -20,8 +20,8 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-CORE = Path(os.environ.get("EXOBEM_CORE", ROOT.parent / "exo-fork"))
-RUNS = Path(os.environ.get("EXOBEM_CORE_RUNS", ROOT.parent / "exo-runs" / "m2"))
+CORE = Path(os.environ.get("THERMONAUT", ROOT.parent / "exo-fork"))
+RUNS = Path(os.environ.get("THERMONAUT_RUNS", ROOT.parent / "exo-runs" / "m2d"))
 OUT = HERE / "data"
 
 CASES = {"moon_equator": "moon_equator_pwf", "mars_jezero": "mars_jezero_pwf"}
@@ -118,7 +118,12 @@ def main():
             w.writerow([h] + [f"{d[k][h]:.6g}" for k in ep for d in (ep, py)])
     summary["lunar_habitat"] = json.loads((CORE / "planetary" / "cases" / "lunar_habitat" / "comparison.json").read_text())
     summary["pv_vacuum"] = json.loads((CORE / "planetary" / "cases" / "pv_vacuum" / "pv_vacuum_check.json").read_text())
-    summary["meta"] = dict(source="ExoBEM-Core M2 (branch exobem-core, commit de425b800) and Python ExoBEM v0.2",
+    # checks against independent references (JPL Horizons, Diviner) and closed-form boundary balances
+    cases = CORE / "planetary" / "cases"
+    summary["horizons"] = json.loads((cases / "horizons" / "horizons_check.json").read_text())
+    summary["boundary"] = json.loads((cases / "boundary_check.json").read_text())
+    summary["moon_regolith"] = json.loads((cases / "moon_regolith_check.json").read_text())
+    summary["meta"] = dict(source="Thermonaut M2d (branch thermonaut) and Python ExoBEM v0.2",
                            moon_window="second lunation (720 h)", mars_window="days 16-31 (384 h)",
                            modes="comparison = engine reading the PWF file; comparison_generator = engine's own environment generator")
     (OUT / "core_summary.json").write_text(json.dumps(summary, indent=1))

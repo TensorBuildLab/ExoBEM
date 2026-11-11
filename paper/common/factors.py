@@ -4,7 +4,7 @@ One list feeds the factor tables of both manuscripts and docs/planetary_factors.
 documentation cannot drift apart.
 
 Each entry: (category, factor, earth, moon, mars, exobem, core) where exobem / core describe the treatment
-in ExoBEM (Python) and ExoBEM-Core (C++).  Status words used in the tables:
+in ExoBEM (Python) and Thermonaut (C++).  Status words used in the tables:
   modelled   - physics implemented and verified
   input      - a user parameter with a documented default
   enforced   - checked; a contradicting input stops the run
@@ -93,7 +93,7 @@ STATUS_WORDS = ("modelled", "input", "enforced", "neglected")
 
 
 def markdown():
-    rows = ["| Category | Factor | Earth | Moon | Mars | ExoBEM | ExoBEM-Core |", "|---|---|---|---|---|---|---|"]
+    rows = ["| Category | Factor | Earth | Moon | Mars | ExoBEM | Thermonaut |", "|---|---|---|---|---|---|---|"]
     rows += ["| " + " | ".join(f) + " |" for f in FACTORS]
     return "\n".join(rows)
 

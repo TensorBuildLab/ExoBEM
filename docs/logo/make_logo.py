@@ -1,8 +1,8 @@
-"""Draw the ExoBEM and ExoBEM-Core logos (SVG + PNG).
+"""Draw the ExoBEM logo and icon (SVG + PNG).
 
     python docs/logo/make_logo.py
 Design: a regolith-covered habitat module on a planetary horizon under the Sun, with heat leaving the roof as
-infrared arcs; the wordmark follows.  ExoBEM-Core adds a circuit ring that stands for the C++ engine.
+infrared arcs; the wordmark follows.  (The independent engine Thermonaut has its own logo in its repository.)
 """
 from pathlib import Path
 
@@ -85,5 +85,3 @@ def draw(name, word, sub, core=False, square=False):
 if __name__ == "__main__":
     draw("exobem_logo", "ExoBEM", "Building energy simulation for the Moon and Mars")
     draw("exobem_icon", "", "", square=True)
-    draw("exobem_core_logo", "ExoBEM-Core", "Planetary mode for the EnergyPlus engine", core=True)
-    draw("exobem_core_icon", "", "", core=True, square=True)

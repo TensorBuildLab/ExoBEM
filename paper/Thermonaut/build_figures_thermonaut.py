@@ -1,6 +1,6 @@
-"""Figures for the ExoBEM-Core and combined manuscripts (reads paper/ExoBEM-Core/data, writes paper/ExoBEM-Core/figures/core_*.png).
+"""Figures for the Thermonaut and combined manuscripts (reads paper/Thermonaut/data, writes paper/Thermonaut/figures/core_*.png).
 
-    python paper/ExoBEM-Core/build_figures_core.py
+    python paper/Thermonaut/build_figures_thermonaut.py
 Same style and palette as studies/make_figures.py.
 """
 from __future__ import annotations
@@ -33,7 +33,7 @@ plt.rcParams.update({
     "axes.titlecolor": INK, "axes.titleweight": "bold", "axes.titlelocation": "left",
 })
 PY = dict(color=C[0], lw=1.7, label="ExoBEM (Python)")
-CPP = dict(color=C[1], lw=1.0, ls=(0, (3, 1.5)), label="ExoBEM-Core (C++)")
+CPP = dict(color=C[1], lw=1.0, ls=(0, (3, 1.5)), label="Thermonaut (C++)")
 
 
 def save(fig, name):
@@ -74,7 +74,7 @@ def fig_hooks():
         ("Weather manager", "WeatherManager.cc", "overwrite tomorrow's weather;\nhour-angle rate; cabin pressure"),
         ("Solar and shading", "SolarShading.cc", "daily sun fit, rate·(12−t−EoT);\nisotropic sky, no Perez"),
         ("Outside surface balance", "ConvectionCoefficients.cc", "h = 0 (Moon) / CO2 mixed (Mars);\nall sky LW to sky; ground = regolith"),
-        ("Conduction (CTF / CondFD)", "HeatBalFiniteDiffManager.cc", "−270 °C limit; steady k(T) start-up\nprofile + post-warm-up correction"),
+        ("Conduction (CTF / CondFD)", "HeatBalFiniteDiffManager.cc", "−270 °C limit; steady k(T) start-up\nprofile + warm-up-aware correction"),
         ("Inside balance, zone air", "HeatBalanceSurfaceManager.cc", "cabin-gas convection at cabin\npressure and body gravity"),
     ]
     y0, hgt, gap = 50.5, 6.9, 1.35
@@ -98,7 +98,7 @@ def fig_hooks():
     box(64, 22.5, 34, 34.5, "PlanetaryBody module (new)",
         "Ephemerides: Mars24; lunar subsolar point\n\nEnvironment generator (whole run period):\n"
         "Moon: vacuum, 2.725 K sky\nMars: delta-Eddington dust two-stream,\nτ(Ls), P(Ls), sky IR, air surrogate, wind\n\n"
-        "Regolith column (Hayne 2017 / thermal\ninertia), spun up before the run\n\n"
+        "Regolith column (Hayne 2017 / thermal\ninertia) in periodic equilibrium\n\n"
         "Gas properties: cabin N2/O2, Mars CO2\nPhysical mixed convection (g, p, gas)", C[1], bsize=5.7)
     box(64, 3.5, 34, 15.5, "Earth (no Site:PlanetaryBody)",
         "every hook is gated on planet.active or\nreplaces a literal by a variable with the\nsame Earth value → results bit-for-bit\nidentical to v26.2.0 (14 example files)",
@@ -206,10 +206,13 @@ def fig_response():
         axs[0, j].text(t[a] + 0.4, axs[0, j].get_ylim()[1], f"comparison window\n{e['ep_cooling_kWh']:.1f} vs "
                        f"{e['py_cooling_kWh']:.1f} kWh ({diff:+.2f} %)", fontsize=6.3, color=INK2, va="top")
         axs[2, j].set_xlabel("Elapsed time (Earth days)")
-    axs[0, 0].set_ylim(3.1, 5.8)
-    axs[0, 1].set_ylim(1.85, 2.45)
-    axs[2, 0].set_ylim(31.1, 34.0)
-    axs[2, 1].set_ylim(25.85, 28.2)
+    # data-driven limits (both curves fully visible, room for the window label at the top)
+    for i, (k, sc, minspan) in ((0, ("Qc", 1e-3, 0.5)), (2, ("tin", 1, 1.0))):
+        for j, d in enumerate((mo, ma)):
+            v = np.concatenate([d[f"py_{k}"], d[f"cpp_{k}"]]) * sc
+            lo, hi = float(np.nanmin(v)), float(np.nanmax(v))
+            span = max(hi - lo, minspan)
+            axs[i, j].set_ylim(lo - 0.25 * span, hi + (0.9 if i == 0 else 0.3) * span)
     for j in range(2):  # re-place the window labels after the y-limits change
         for txt in list(axs[0, j].texts):
             txt.set_y(axs[0, j].get_ylim()[1])
@@ -240,7 +243,7 @@ def fig_habitats():
     ax3.plot(t, h["py_Qc"] / 1000, **PY)
     ax3.plot(t, h["cpp_Qc"] / 1000, **CPP)
     ax3.plot(t, h["py_Ql"] / 1000, color=C[2], lw=1.6, label="latent, ExoBEM")
-    ax3.plot(t, h["cpp_Ql"] / 1000, color=C[3], lw=1.0, ls=(0, (3, 1.5)), label="latent, ExoBEM-Core")
+    ax3.plot(t, h["cpp_Ql"] / 1000, color=C[3], lw=1.0, ls=(0, (3, 1.5)), label="latent, Thermonaut")
     ax3.set_ylabel("Cooling load (kW)")
     ax3.set_xlabel("Elapsed time (Earth days)")
     ax3.set_title("(c) Habitat (b): sensible and latent cooling")
@@ -248,9 +251,9 @@ def fig_habitats():
     ax3.legend(fontsize=6.0, ncol=2, loc="upper left", frameon=True, framealpha=0.95)
     ax4 = fig.add_subplot(2, 2, 4)
     ax4.plot(t, h["py_To_s"], color=C[0], lw=1.6, label="south wall, ExoBEM")
-    ax4.plot(t, h["cpp_To_s"], color=C[1], lw=1.0, ls=(0, (3, 1.5)), label="south wall, ExoBEM-Core")
+    ax4.plot(t, h["cpp_To_s"], color=C[1], lw=1.0, ls=(0, (3, 1.5)), label="south wall, Thermonaut")
     ax4.plot(t, h["py_To_f"], color=C[2], lw=1.6, label="floor, ExoBEM")
-    ax4.plot(t, h["cpp_To_f"], color=C[3], lw=1.0, ls=(0, (3, 1.5)), label="floor, ExoBEM-Core")
+    ax4.plot(t, h["cpp_To_f"], color=C[3], lw=1.0, ls=(0, (3, 1.5)), label="floor, Thermonaut")
     ax4.set_ylabel("Outer face (°C)")
     ax4.set_xlabel("Elapsed time (Earth days)")
     ax4.set_title("(d) Habitat (b): outer-face temperatures")

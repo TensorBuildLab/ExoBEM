@@ -14,7 +14,7 @@ single lunar run works. It would also need a full C++ toolchain, which this mach
 Phase 1 therefore re-implements the parts of the EnergyPlus algorithms that habitats need, in a
 compact Python engine whose time base, ephemeris and boundary conditions are planet-agnostic. It is
 verified against EnergyPlus 23.2 on Earth, so the planetary extensions start from a trusted core.
-Phase 3 ports the validated planetary physics back into EnergyPlus's C++ code base (ExoBEM-Core).
+Phase 3 ports the validated planetary physics back into EnergyPlus's C++ code base (Thermonaut).
 
 ## Phase 1 — ExoBEM core (v0.1, this release) ✅
 
@@ -42,10 +42,10 @@ Phase 3 ports the validated planetary physics back into EnergyPlus's C++ code ba
 7. **Calibration and validation** against thermal-vacuum chamber tests and analog habitats (HI-SEAS, MDRS, Mars-500).
 8. **Uncertainty quantification**: Monte-Carlo over regolith properties, dust optical depth and crew schedules.
 
-## Phase 3 — Back-port into EnergyPlus C++: ExoBEM-Core (in progress)
+## Phase 3 — Back-port into EnergyPlus C++: Thermonaut (in progress)
 
-The C++ fork lives in [TensorBuildLab/ExoBEM-Core](https://github.com/TensorBuildLab/ExoBEM-Core)
-(branch `exobem-core`, based on EnergyPlus v26.2.0; renamed because of license clause 4).
+The C++ fork lives in [TensorBuildLab/Thermonaut](https://github.com/TensorBuildLab/Thermonaut)
+(branch `thermonaut`, based on EnergyPlus v26.2.0; renamed because of license clause 4).
 
 * ✅ M1: `Site:PlanetaryBody` object; Mars24 and lunar ephemerides; environment generator (vacuum sky,
   Mars dust two-stream, pressure, downwelling IR, regolith column); cabin pressure for zone air; vacuum/CO2
@@ -55,6 +55,9 @@ The C++ fork lives in [TensorBuildLab/ExoBEM-Core](https://github.com/TensorBuil
 * ✅ M2: planetary weather files (PWF) with no EPW; one-diode PV with a vacuum / CO2 cell energy balance;
   Li-ion batteries in a zone; regolith periodic equilibrium; Beer-law Mars beam, disk-area horizon, seasonal
   pressure phases. NASA-class lunar habitat within 0.02 % (sensible) / 0.9 % (latent) of ExoBEM.
+* ✅ M2c–M2d: Mars sky long-wave recalibrated to the 2018 storm (as in ExoBEM); CondFD start-up correction applied
+  only where warm-up could not reach (removes the one-day transient); independent checks against JPL Horizons,
+  Diviner and closed-form boundary balances.
 * M3: sol clock for Mars (run-time hour length), cabin gas psychrometrics, gravity in every buoyancy model,
   planetary design days and sizing, space radiator plant component and heat-pump lift, PV dust soiling, windows.
 

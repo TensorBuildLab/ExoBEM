@@ -1,7 +1,7 @@
 # Earth, Moon and Mars: factors that matter for building energy simulation
 
 Every factor that makes a sealed planetary habitat differ from an Earth building, and how ExoBEM (Python) and
-ExoBEM-Core (the EnergyPlus fork) treat it. Status words: **modelled** (physics implemented and verified),
+Thermonaut (the EnergyPlus fork) treat it. Status words: **modelled** (physics implemented and verified),
 **input** (a parameter with a documented default), **enforced** (a contradicting input stops the run),
 **neglected** (left out, with the reason). The same list produces the factor tables of both papers
 (`paper/common/factors.py`).
@@ -9,7 +9,7 @@ ExoBEM-Core (the EnergyPlus fork) treat it. Status words: **modelled** (physics 
 
 ## Time and Sun
 
-| Factor | Earth | Moon | Mars | ExoBEM | ExoBEM-Core |
+| Factor | Earth | Moon | Mars | ExoBEM | Thermonaut |
 |---|---|---|---|---|---|
 | Length of the solar day | 24 h | 29.53 d (708.7 h): 354 h of light, 354 h of night | 1 sol = 24.66 h (88,775 s) | modelled: any day length; time step independent of the day | modelled: Sun moves at the body's hour-angle rate on an Earth clock |
 | Seasons and orbit | 365.25 d; obliquity 23.4°; e = 0.017 | Spin axis 1.5° from the ecliptic: almost no seasons; Sun grazes the horizon at the poles | 668.6 sols; obliquity 25.2°; e = 0.093 | modelled: Mars24 ephemeris; lunar subsolar point | modelled: same ephemerides, daily fit |
@@ -20,7 +20,7 @@ ExoBEM-Core (the EnergyPlus fork) treat it. Status words: **modelled** (physics 
 
 ## Atmosphere and sky
 
-| Factor | Earth | Moon | Mars | ExoBEM | ExoBEM-Core |
+| Factor | Earth | Moon | Mars | ExoBEM | Thermonaut |
 |---|---|---|---|---|---|
 | Ambient gas and pressure | Air, 101 kPa | Vacuum (~10⁻¹² kPa) | 95 % CO2, 0.6–0.8 kPa, ±12 % seasonal cycle | modelled: vacuum or CO2 with seasonal pressure | modelled: separate ambient pressure |
 | Diffuse sunlight | Clouds and aerosols (Perez model) | None | Dust scattering; τ = 0.3 to > 6 in global storms | modelled: delta-Eddington two-stream, τ(Ls), storm scenario | modelled: same model or read from the weather file |
@@ -31,7 +31,7 @@ ExoBEM-Core (the EnergyPlus fork) treat it. Status words: **modelled** (physics 
 
 ## Ground
 
-| Factor | Earth | Moon | Mars | ExoBEM | ExoBEM-Core |
+| Factor | Earth | Moon | Mars | ExoBEM | Thermonaut |
 |---|---|---|---|---|---|
 | Ground thermal model | Monthly ground temperatures | Regolith k ≈ 1–10 mW/(m·K), surface 95–390 K | Regolith with CO2 in pores, thermal inertia ≈ 350 SI | modelled: 1-D regolith column (Hayne et al. 2017; thermal inertia) | modelled: same column, or from the weather file |
 | Geothermal heat flux | 60–90 mW/m² | 18 mW/m² (Apollo heat flow) | ~20 mW/m² (estimated) | modelled on the Moon; neglected on Mars (< 0.1 % of loads) | same |
@@ -39,7 +39,7 @@ ExoBEM-Core (the EnergyPlus fork) treat it. Status words: **modelled** (physics 
 
 ## Envelope
 
-| Factor | Earth | Moon | Mars | ExoBEM | ExoBEM-Core |
+| Factor | Earth | Moon | Mars | ExoBEM | Thermonaut |
 |---|---|---|---|---|---|
 | Exterior convection | Correlations for air at 1 atm (TARP, DOE-2) | None | Mixed convection in thin CO2 at 3.72 m/s², 20–70× weaker | modelled: physical correlation for any gas, pressure, gravity | modelled; Earth floor on h bypassed |
 | Exterior long-wave exchange | Ground at air temperature; part of the sky view to air | Sky 2.7 K; hot or cold regolith | Sky and regolith | modelled: sky and regolith only | modelled |
@@ -51,7 +51,7 @@ ExoBEM-Core (the EnergyPlus fork) treat it. Status words: **modelled** (physics 
 
 ## Cabin
 
-| Factor | Earth | Moon | Mars | ExoBEM | ExoBEM-Core |
+| Factor | Earth | Moon | Mars | ExoBEM | Thermonaut |
 |---|---|---|---|---|---|
 | Outdoor air: infiltration, ventilation, economizers | Major load component | None: sealed pressure vessel | None: sealed pressure vessel | enforced: infiltration must be 0 | enforced: all outdoor-air objects refused |
 | Cabin gas lost overboard | – | Leakage ~0.1–0.2 kg/d; airlock venting per EVA | Same | modelled: leakage + airlock losses, make-up gas energy and mass | neglected (energy < 1 W); reported by ExoBEM |
@@ -65,7 +65,7 @@ ExoBEM-Core (the EnergyPlus fork) treat it. Status words: **modelled** (physics 
 
 ## Systems
 
-| Factor | Earth | Moon | Mars | ExoBEM | ExoBEM-Core |
+| Factor | Earth | Moon | Mars | ExoBEM | Thermonaut |
 |---|---|---|---|---|---|
 | Heat rejection | Outdoor air, cooling towers | Radiators only; hot regolith can force heat-pump lift | Radiators (thin-gas convection secondary) | modelled: radiator sink, heat-pump COP, pump power | refused air/evaporative equipment; space radiator planned |
 | Electric power generation | Grid | PV with lunar-night storage, or fission | PV with dust losses, or fission | modelled: PV (cell temperature in vacuum), batteries, RFC, fission, dispatch | modelled: PV one-diode with vacuum cell temperature, batteries in a zone |
