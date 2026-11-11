@@ -240,14 +240,14 @@ def artemis_surface_habitat(dt=1800.0, n_crew=4, cabin_kPa=56.5, o2=0.34, shield
 
 
 def mars_surface_habitat(dt=None, n_crew=6, cabin_kPa=56.5, o2=0.34, shield=None, heating=20.0, cooling=25.0,
-                         radiator_area=80.0, electric_kW=12.0, oga_kW=1.35, elevation_m=1.5, eva_per_week=10):
+                         radiator_area=80.0, electric_kW=12.0, oga_kW=1.35, elevation_m=1.5, eva_per_week=5):
     """Six-crew Mars surface habitat (NASA DRA 5.0 class).
 
     * Vertical two-deck cylinder D = 7.2 m, H = 5.5 m: 224 m3 pressurized (25 m3 net habitable volume per
       person, Whitmire et al. 2014, over the 0.73 habitable/pressurized ratio of the lunar habitat).
     * Envelope: beta cloth over 40 mm silica aerogel (MLI is ineffective in 0.7 kPa CO2) over aluminium.
-    * Cabin 56.5 kPa / 34 % O2; 20-25 C; RH 30-60 %.  Leakage 0.05 %/day; 10 EVAs per week (two
-      2-person sorties per workday, Anderson et al. 2018) through a 4.25 m3 airlock vented from 6.9 kPa.
+    * Cabin 56.5 kPa / 34 % O2; 20-25 C; RH 30-60 %.  Leakage 0.05 %/day; one 2-person EVA per workday (5 airlock cycles a week,
+      Anderson et al. 2018) through a 4.25 m3 airlock vented from 6.9 kPa.
     * Crew per person (BVAD long-duration): sleep 44 + 44 W latent, awake 85 + 54 W, daily mean 76.5 + 76.3.
     * Electric power inside the shell: 12 kWe (DRA 5.0) + 1.35 kW O2 electrolysis (22 % heat).
     * Schedules follow local mean solar time (a 24.66 h sol); the time step defaults to 1/24 sol.

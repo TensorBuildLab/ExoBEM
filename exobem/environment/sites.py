@@ -180,7 +180,7 @@ def mars_surface_pressure(Ls, P_mean=720.0, a1=0.074, phi1=154.0, a2=0.055, phi2
 
 def mars_site(latitude, longitude, start_utc, duration_sols, dt=1800.0, tau=None, tau_kwargs=None,
               P_mean=710.0, thermal_inertia=350.0, albedo=0.14, dust_w0=0.885, dust_g=0.74,
-              air_coupling=0.6, air_lag_h=0.5, sky_emissivity=(0.08, 0.125), dust_reemission=0.45,
+              air_coupling=0.6, air_lag_h=0.5, sky_emissivity=(0.12, 0.10), dust_reemission=0.20,
               wind_mean=3.2, wind_amp=2.0,
               spinup_sols=30, deep_depth=3.0, horizon=None, equilibrate=True):
     """Martian surface environment.
@@ -192,11 +192,12 @@ def mars_site(latitude, longitude, start_utc, duration_sols, dt=1800.0, tau=None
       an empirical surrogate for the convective boundary layer, kappa ~ 0.6 reproducing the
       ~2:1 ratio of ground-to-air diurnal amplitude measured by MEDA/REMS.
     * Downwelling long-wave: L = eps_sky(tau) sigma T_air^4 + f_re <G_toa,h - G_h>_sol with
-      eps_sky = min(0.08 + 0.125 tau, 0.6) and f_re = 0.45: gas/dust emission plus re-emission of
+      eps_sky = min(0.12 + 0.10 tau, 0.6) and f_re = 0.20: gas/dust emission plus re-emission of
       the sunlight removed by dust (sol-running mean; a one-layer-atmosphere energy term).
-      Calibrated to MEDA/TIRS (Martinez et al. 2023): clear-season daily mean ~30 W/m2; in a global
-      dust storm the sol-mean temperature drops by ~10 K while the diurnal range collapses, as
-      observed in 2018 (Guzewich et al. 2019).
+      Calibrated (studies/calibrate_mars_storm_ir.py) to the MEDA/TIRS clear-season daily mean of
+      ~30 W/m2 (Martinez et al. 2023; model 30.4) and to the 2018 global dust storm, in which the
+      diurnal range of air temperature collapsed while its diurnal mean fell by only ~4 K
+      (Guzewich et al. 2019; Viudez-Moreiras et al. 2019; model -4.6 K, range 47 -> 11 K).
     * Dust scattering: effective broadband w0 = 0.885, g = 0.74, fitted to the Appelbaum &
       Flood (1990) net-flux tables (RMSE 0.014).  Defaults for the site: Jezero (MEDA:
       P 625-790 Pa, albedo 0.14, thermal inertia ~350 SI, mean wind 3.2 m/s).

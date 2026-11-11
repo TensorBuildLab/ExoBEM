@@ -58,7 +58,7 @@ ExoBEM-Core (the EnergyPlus fork) treat it. Status words: **modelled** (physics 
 | Cabin pressure and composition | 101 kPa, 21 % O2 | 70.3 kPa / 26.5 % O2 or 56.5 kPa / 34 % O2 | Same | modelled: density, cp, conductivity, psychrometrics of the cabin gas | modelled: cabin pressure for all zone and HVAC air |
 | Oxygen limits | – | Hypoxia below ~16 kPa O2; flammability above 34 % O2 | Same | enforced: input checks | input |
 | Humidity and condensate | Outdoor-air humidity dominates | Only crew and plants add water; condensing heat exchanger removes it | Same | modelled: vapour balance, RH 25–60 %, condensate reported | modelled: EnergyPlus moisture balance at cabin pressure |
-| Natural convection inside | 1 g, 101 kPa | 1.62 m/s², 70 kPa: ~2.3× weaker | 3.72 m/s²: ~1.8× weaker | modelled: physical mixed convection with forced cabin flow 0.15 m/s | modelled |
+| Natural convection inside | 1 g, 101 kPa | 1.62 m/s², 56.5 kPa: ~2.5× weaker | 3.72 m/s², 56.5 kPa: ~1.9× weaker | modelled: physical mixed convection with forced cabin flow 0.15 m/s | modelled |
 | Life support (CO2 removal, O2 generation, water processing) | – | Kilowatts of electric power, released as cabin heat | Same | modelled: electric internal gains | modelled: electric equipment |
 | Crew metabolism and schedules | Occupant densities | BVAD: 85 W sensible + 54 W latent per person (mean) | Same | modelled: BVAD values, sleep/work schedule | modelled: People/equipment schedules |
 | Interior thermal mass (racks, stowage) | Furniture | Racks and stowage | Same | modelled: internal mass | modelled: InternalMass |

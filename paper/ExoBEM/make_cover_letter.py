@@ -85,7 +85,7 @@ def main():
            f"{pe['PV + Li-ion']['storage_kWh']/1000:.1f} MWh ({pe['PV + Li-ion']['storage_mass_t']:.0f} t) of Li-ion "
            "storage for solar power. A Martian global dust storm requires "
            f"{ps['PV x2 + Li-ion']['storage_kWh']/1000:.0f} MWh ({ps['PV x2 + Li-ion']['storage_mass_t']:.0f} t) even "
-           "with twice the minimum array, while one 40 kWe fission unit covers every case.")
+           "with twice the minimum array, while one 40 kWe fission unit (6 t design goal) covers every case.")
     bullet("Open and reproducible. ",
            "The tool is an installable Python package with a tutorial, and it introduces a planetary weather-file "
            "format so that environments can be shared between tools. All code and the data behind every figure "
@@ -97,10 +97,9 @@ def main():
          "dispatchable power over long periods of darkness, is the same one faced by off-grid and polar facilities "
          "on Earth.", after=8)
 
-    para("This manuscript is original, has not been published, and is not under consideration elsewhere. A "
-         "companion manuscript on adapting the EnergyPlus engine itself (ExoBEM-Core) is in preparation and will be "
-         "submitted separately; it is cited as such. The use of generative AI in preparing this work is declared in "
-         "the manuscript. The authors declare no competing interests. [Funding statement.]")
+    para("This manuscript is original, has not been published, and is not under consideration elsewhere. The use of "
+         "generative AI in preparing this work is declared in the manuscript. The author declares no competing "
+         "interests. [Funding statement.]")
 
     para("[Optional: suggested reviewers, with name, affiliation, email and expertise.]", italic=True)
 

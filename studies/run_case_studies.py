@@ -25,6 +25,7 @@ from exobem import simulate  # noqa: E402
 from exobem import gas as G  # noqa: E402
 from exobem.cases import artemis_surface_habitat, mars_surface_habitat  # noqa: E402
 from exobem.convection import forced_physical, mixed_physical, natural_physical  # noqa: E402
+from exobem.model import Thermostat  # noqa: E402
 from exobem.environment.sites import mars_site, moon_site  # noqa: E402
 from exobem.ephemeris import jd_from_datetime, mars as mars_eph  # noqa: E402
 from exobem.materials import Construction  # noqa: E402
@@ -185,7 +186,8 @@ def power_options(key, env, load, tracking, mars):
                             repeat_cycles=2)
         out["PV x2 + Li-ion"] = dict(pv_area_m2=A2, storage_kWh=cap2, storage_mass_t=cap2 / LIION["Wh_per_kg"], **s2["summary"])
         series["A2_soc"] = s2["soc_battery_kWh"] / cap2
-    out["eclipse_100h_storage_kWh"] = float(load.mean() * 100.0 / 1e3 / LIION["eta"])
+    # nameplate, as in Table 11: usable energy / discharge efficiency / usable depth (1 - minimum state of charge)
+    out["eclipse_100h_storage_kWh"] = float(load.mean() * 100.0 / 1e3 / LIION["eta"] / (1.0 - LIION["soc_min"]))
     # C: fission
     n_units = int(np.ceil(peak / (FISSION_KWE * 1e3)))
     sC = simulate_power(PowerSystem(fission=FissionPower(FISSION_KWE, FISSION_EFF, 1.0, n_units)), env, load)
@@ -236,6 +238,8 @@ def main():
             L_down_mean=float(np.mean(e.extra["L_down"])) if "L_down" in e.extra else None,
             L_down_min=float(np.min(e.extra["L_down"])) if "L_down" in e.extra else None,
             L_down_max=float(np.max(e.extra["L_down"])) if "L_down" in e.extra else None,
+            L_down_clear_mean=(float(np.mean(e.extra["L_down"][(e.extra["Ls"] > 30) & (e.extra["Ls"] < 150)]))
+                               if "L_down" in e.extra else None),
             tau_max=float(np.max(e.extra["tau"])) if "tau" in e.extra else None,
             longest_dark_days=_longest_dark(e))
 
@@ -297,6 +301,19 @@ def main():
     for lab, mdl in mars_var.items():
         _, m = run(f"mars|{lab}", mdl, env_mjz, store=False)
         report.setdefault("envelope_mars_jezero", {})[lab] = m
+
+    # ------------------------------------------------------------------ condensation vs cabin set-points (Mars)
+    # The baseline cabin sits at the top of its control band (25 C, 60 % RH) because the habitat always needs
+    # cooling and the crew always adds water; lower humidity limits or a cooler cabin lower the dew point.
+    for t_c, rh in ((25.0, 0.60), (25.0, 0.50), (25.0, 0.40), (22.0, 0.60), (22.0, 0.50)):
+        mdl = mars_surface_habitat(dt=dt_mars)
+        mdl.zone.thermostat = Thermostat(min(20.0, t_c - 2.0), t_c)
+        mdl.zone.rh_max = rh
+        _, m = run(f"mars|cabin {t_c:.0f} C, RH <= {rh:.0%}", mdl, env_mjz, store=False)
+        report.setdefault("condensation_setpoints", {})[f"{t_c:.0f} C, {rh:.0%}"] = dict(
+            cabin_C=t_c, rh_max=rh, condensation_risk_hours=m["condensation_risk_hours"],
+            min_surface_minus_dewpoint_K=m["min_surface_minus_dewpoint_K"], latent_kWh_per_day=m["latent_kWh_per_day"],
+            tcs_heat_kWh_per_day=m["tcs_heat_kWh_per_day"])
 
     # ------------------------------------------------------------------ radiator options (lunar equator)
     res, env, mdl = base["moon_equator"]

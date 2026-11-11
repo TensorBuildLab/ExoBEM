@@ -55,10 +55,10 @@ def build(m):
         f"ExoBEM reproduces EnergyPlus 23.2 for opaque ASHRAE 140 cases within {EPLUS_MAX_DIFF:.1f}% in annual loads; its "
         "planetary models reproduce Mars24, Diviner, Appelbaum–Flood and MEDA reference data, and its envelope, "
         "calibrated to NASA's night-time heat leak of the Artemis surface habitat, predicts the daylight loss within "
-        f"{abs(CAL['day_error_pct']):.0f}%. For four-crew lunar and six-crew Mars habitats sized from NASA concepts, heat "
-        f"rejection dominates ({mpo['tcs_heat_kWh_per_day']/24:.1f} kW and {mjz['tcs_heat_kWh_per_day']/24:.1f} kW on average). "
+        f"{abs(CAL['day_error_pct']):.0f}%. For NASA-class four-crew lunar and six-crew Mars habitats, heat "
+        f"rejection dominates ({mpo['tcs_heat_kWh_per_day']/24:.1f} kW and {mjz['tcs_heat_kWh_per_day']/24:.1f} kW). "
         f"Equatorial lunar radiators need heat-pump lift {100*meq['heat_pump_hours_frac']:.0f}% of the time, an "
-        f"aerogel-only Mars habitat risks condensation for {mjz['condensation_risk_hours']:.0f} hours a year, and storage "
+        f"aerogel-only Mars habitat with a 25 °C, 60% RH cabin risks condensation for {mjz['condensation_risk_hours']:.0f} hours a year, and storage "
         "across the lunar night or a dust storm dominates solar power, while a 40 kWe fission unit covers every case.",
         space_after=6)
     m.para("**Keywords:** building energy simulation; EnergyPlus; lunar habitat; Mars habitat; heat balance; regolith; "
@@ -92,15 +92,14 @@ def build(m):
         "a systematic analysis of every factor that distinguishes a sealed planetary habitat from an Earth building "
         "(Section @sec:factors, Table @tab:factors) and makes each one either a modelled physical process, a documented "
         "input, a check that stops an invalid run, or an explicitly justified omission. The paper makes five "
-        "contributions. (i) It presents ExoBEM, to the authors' knowledge the first open-source re-implementation of the "
+        "contributions. (i) It presents ExoBEM, to the author's knowledge the first open-source re-implementation of the "
         "EnergyPlus heat-balance method for planetary surface habitats, distributed as an installable Python package with "
         "a tutorial. (ii) It explains how the tool coordinates its components and how it relates, element by element, to "
         "EnergyPlus. (iii) It adds the sealed-cabin physics (leakage, airlock losses, humidity, condensation risk), a "
         "planetary weather-file format and an electric power system to the building model. (iv) It verifies the "
-        "terrestrial core against EnergyPlus 23.2, the planetary models against reference data and the envelope against "
-        "NASA's thermal analysis of the Artemis surface habitat. (v) It applies the tool to NASA-class habitats for the "
-        "first crews on the Moon and Mars. The companion engine ExoBEM-Core carries the same physics into the "
-        "EnergyPlus code itself and uses ExoBEM as its reference [@ZhangCore]. Section @sec:related reviews related "
+        "terrestrial core against EnergyPlus 23.2 and the planetary models against reference data, and calibrates and "
+        "checks the envelope against NASA's thermal analysis of the Artemis surface habitat. (v) It applies the tool to "
+        "NASA-class habitats for the first crews on the Moon and Mars. Section @sec:related reviews related "
         "work, Section @sec:factors analyzes the planetary factors, Section @sec:method describes the method, Section "
         "@sec:verif the verification, Section @sec:cases the case studies and Section @sec:disc the implications and "
         "limitations; Appendix A shows how to use the tool.")
@@ -149,11 +148,11 @@ def build(m):
     m.para(
         "Re-implementing the method in a compact engine allowed the planetary physics to be developed and verified "
         "quickly, but it leaves out most of what EnergyPlus offers: multi-zone air and HVAC systems, plant loops, "
-        "controls and an established input and output ecosystem. A companion paper [@ZhangCore] describes ExoBEM-Core, "
-        "a fork of the EnergyPlus v26.2 C++ engine that adds a planetary mode with the same physics, reads the same "
-        "planetary weather files, keeps Earth results bit-for-bit identical, and agrees with ExoBEM within 1% in cooling "
-        "energy for a lunar and a Martian habitat. ExoBEM remains the faster tool for exploring design options, sizing "
-        "power systems and studying humidity, and the independent reference for regression testing of the engine.")
+        "controls and an established input and output ecosystem. Carrying the planetary models into the EnergyPlus "
+        "engine itself would give habitat designers those features. ExoBEM is built to support that step: its physics "
+        "follows the EnergyPlus structure element by element (Table @tab:eplus), its planetary weather format can be read "
+        "by any program, and its verification cases can serve as the reference for an engine implementation. Until then, "
+        "ExoBEM is the faster tool for exploring design options, sizing power systems and studying cabin humidity.")
 
     # ======================================================================= 8 conclusions
     m.heading("Conclusions", label="concl")
@@ -164,11 +163,13 @@ def build(m):
         "ground, gravity- and pressure-aware convection, curved shields, a sealed cabin with leakage, airlock losses and "
         "humidity, radiator heat rejection and an on-site power system, all driven by a documented planetary weather "
         f"format. Its terrestrial core matches EnergyPlus 23.2 within {EPLUS_MAX_DIFF:.1f}% in annual loads, its "
-        "planetary models reproduce Mars24, Diviner, Appelbaum–Flood and MEDA reference data, and its envelope model "
-        "reproduces NASA's thermal analysis of the Artemis surface habitat. For NASA-class habitats for the first crews "
-        f"the design problem is to reject {mpo['tcs_heat_kWh_per_day']/24:.0f}–{meq['tcs_heat_kWh_per_day']/24:.0f} kW of "
+        "planetary models reproduce Mars24, Diviner, Appelbaum–Flood and MEDA reference data, and its envelope model, "
+        "calibrated to NASA's night-time heat leak of the Artemis surface habitat, predicts the daytime value within "
+        f"{abs(CAL['day_error_pct']):.0f}%. For NASA-class habitats for the first crews the design problem is to reject "
+        f"{min(q['tcs_heat_kWh_per_day'] for q in (mpo, meq, mjz))/24:.0f}–"
+        f"{max(q['tcs_heat_kWh_per_day'] for q in (mpo, meq, mjz))/24:.0f} kW of "
         "internal heat, which costs heat-pump power at the lunar equator but almost none at the pole or on Mars; to keep "
-        "the inner surfaces of a Mars habitat above the dew point, which aerogel alone does not achieve; and to store "
+        "the inner surfaces of a Mars habitat above the dew point, which an aerogel envelope achieves only if cabin humidity is held at or below 50%; and to store "
         "energy through the lunar night, polar eclipses or dust storms, which favours large arrays on Mars and fission "
         "where darkness lasts. The package, tutorial, weather files and every script behind this paper are open source.")
 
@@ -179,8 +180,7 @@ def build(m):
         "python -m pip install \"exobem[plot] @ git+https://github.com/TensorBuildLab/ExoBEM\". The repository contains "
         "the tutorial (docs/tutorial), the planetary weather-format specification (docs/weather_format.md), the example "
         "models and weather files, the EnergyPlus verification inputs, the case-study scripts and the data behind every "
-        "figure and table. The companion engine ExoBEM-Core is at https://github.com/TensorBuildLab/ExoBEM-Core. "
-        "EnergyPlus 23.2 and the TMY3 weather file are available from the U.S. DOE.")
+        "figure and table. EnergyPlus 23.2 and the TMY3 weather file are available from the U.S. DOE.")
     m.heading("Declaration of generative AI use", numbered=False)
     m.para(
         "During the preparation of this work the author used Claude (Anthropic) to assist with literature search, "
@@ -190,8 +190,8 @@ def build(m):
     m.heading("CRediT authorship contribution statement", numbered=False)
     m.para("[To be completed by the authors.]")
     m.heading("Declaration of competing interest", numbered=False)
-    m.para("The authors declare that they have no known competing financial interests or personal relationships that "
-           "could have appeared to influence the work reported in this paper.")
+    m.para("The author declares no known competing financial interests or personal relationships that could have "
+           "appeared to influence the work reported in this paper.")
     m.heading("Acknowledgements", numbered=False)
     m.para("EnergyPlus is developed by the U.S. Department of Energy's Building Technologies Office and its national "
            "laboratory and university partners; ExoBEM is not endorsed by them. [Funding to be added.]")

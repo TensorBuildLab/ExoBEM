@@ -71,7 +71,7 @@ FACTORS = [
     ("Cabin", "Oxygen limits", "–", "Hypoxia below ~16 kPa O2; flammability above 34 % O2", "Same", "enforced: input checks", "input"),
     ("Cabin", "Humidity and condensate", "Outdoor-air humidity dominates", "Only crew and plants add water; condensing heat exchanger removes it",
      "Same", "modelled: vapour balance, RH 25–60 %, condensate reported", "modelled: EnergyPlus moisture balance at cabin pressure"),
-    ("Cabin", "Natural convection inside", "1 g, 101 kPa", "1.62 m/s², 70 kPa: ~2.3× weaker", "3.72 m/s²: ~1.8× weaker",
+    ("Cabin", "Natural convection inside", "1 g, 101 kPa", "1.62 m/s², 56.5 kPa: ~2.5× weaker", "3.72 m/s², 56.5 kPa: ~1.9× weaker",
      "modelled: physical mixed convection with forced cabin flow 0.15 m/s", "modelled"),
     ("Cabin", "Life support (CO2 removal, O2 generation, water processing)", "–", "Kilowatts of electric power, released as cabin heat",
      "Same", "modelled: electric internal gains", "modelled: electric equipment"),

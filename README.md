@@ -70,10 +70,10 @@ Run the test suite with `python -m pytest -q`. To reproduce the EnergyPlus compa
 | | Lunar habitat, south pole | Lunar habitat, equator | Mars habitat, Jezero |
 |---|---|---|---|
 | Crew, volume | 4, 174 m³ | 4, 174 m³ | 6, 224 m³ |
-| Heat to the radiators (mean) | 12.7 kW | 12.9 kW | 8.7 kW |
-| Thermal-control electricity | 3.6 kWh/day (passive) | 98 kWh/day (heat pump 41 % of the time) | 16 kWh/day |
-| Condensation risk on inner surfaces | none | none | 4,081 h/year with aerogel only; none with a 1 m regolith cover |
-| Storage, PV at 2× energy-balance area (Li-ion) | 4.2 MWh (uniform-horizon eclipse of 12 d) | 6.6 MWh (354-h night) | 0.25 MWh (34 MWh in a global dust storm) |
+| Heat to the radiators (mean) | 12.7 kW | 12.9 kW | 8.6 kW |
+| Thermal-control electricity | 3.6 kWh/day (passive) | 98 kWh/day (heat pump 41 % of the time) | 15 kWh/day |
+| Condensation risk on inner surfaces | none | none | 4,839 h/year with aerogel only at 25 °C / 60 % RH; none at ≤ 50 % RH or with a 1 m regolith cover |
+| Storage, PV at 2× energy-balance area (Li-ion) | 4.2 MWh (uniform-horizon eclipse of 12 d) | 6.6 MWh (354-h night) | 0.25 MWh (27 MWh in a global dust storm) |
 
 Reproduce with `python studies/calibrate_lunar_mli.py && python studies/run_case_studies.py && python
 studies/make_figures.py && python paper/ExoBEM/build_paper.py`.

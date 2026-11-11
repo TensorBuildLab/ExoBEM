@@ -93,7 +93,7 @@ def mars():
                      "wall": "shell", "roof": "shell", "floor": "shell", "n_facets": 12,
                      "floor_boundary": "outdoors", "z0": 1.5},
         "zone": {"cabin_pressure_kPa": 56.5, "o2_fraction": 0.34, "heating_setpoint_C": 20, "cooling_setpoint_C": 25,
-                 "leakage_kg_per_day": 0.072, "airlock_cycles_per_day": 1.43, "airlock_loss_kg_per_cycle": 0.35,
+                 "leakage_kg_per_day": 0.072, "airlock_cycles_per_day": 0.714, "airlock_loss_kg_per_cycle": 0.35,
                  "humidity_control": True, "rh_min": 0.30, "rh_max": 0.60, "interior_convection": "physical",
                  "internal_mass": [{"name": "racks_stowage", "construction": "rack", "area_m2": round(2 * deck, 1)}]},
         "gains": [

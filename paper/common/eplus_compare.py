@@ -43,7 +43,7 @@ ROWS = [
     ("Electric power", "ElectricLoadCenter: PV, batteries, generators", "PV with vacuum cell temperature and dust, Li-ion, regenerative fuel cell, fission; dispatch",
      "adapted"),
     ("Output", "ESO / SQLite / tabular reports, report variables", "CSV time series + JSON summary; Python result objects", "adapted"),
-    ("Implementation", "C++, ~720,000 lines", "Python (NumPy, SciPy), ~3,500 lines", "different"),
+    ("Implementation", "C++, ~720,000 lines", "Python (NumPy, SciPy), ~3,800 lines", "different"),
 ]
 
 

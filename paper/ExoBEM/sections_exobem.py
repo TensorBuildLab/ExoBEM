@@ -5,6 +5,7 @@ Cross-references use labels (@fig:x, @tab:x, @sec:x), resolved by docxkit.build_
 """
 from __future__ import annotations
 
+import inspect
 import json
 import sys
 from pathlib import Path
@@ -18,6 +19,7 @@ sys.path.insert(0, str(ROOT))
 R = json.loads((ROOT / "studies" / "results" / "case_studies.json").read_text())
 V = json.loads((ROOT / "verification" / "results" / "energyplus_comparison.json").read_text())
 B = R["baseline"]
+CSP = R.get("condensation_setpoints", {})
 E = R["environment"]
 P = R["power"]
 RAD = R["radiator_moon_equator"]
@@ -49,15 +51,25 @@ def mars_year_stats():
         si = np.floor(d["t_days"] * 86400 / SOL - 1e-9).astype(int)
         c = np.bincount(si)
         dm = lambda k: (np.bincount(si, weights=d[k]) / c)[1:-1]  # noqa: E731
-        out[nm] = dict(ghi=dm("ghi"), ta=dm("T_air") - 273.15, qc=dm("Qc"), el=dm("elec"))
+        rng = np.array([np.ptp(d["T_air"][si == k]) for k in range(1, c.size - 1)])
+        out[nm] = dict(ghi=dm("ghi"), ta=dm("T_air") - 273.15, qc=dm("Qc"), el=dm("elec"), rng=rng)
     a, b = out["mars_jezero"], out["mars_jezero_storm"]
+    peak = np.argsort(b["ghi"])[:10]                       # the ten sols of peak opacity
     return dict(ghi_min=a["ghi"].min(), ghi_max=a["ghi"].max(), ta_min=a["ta"].min(), ta_max=a["ta"].max(),
                 storm_ghi_min=b["ghi"].min(), storm_sols=int((b["ghi"] < 60).sum()),
-                storm_ta_drop=float((a["ta"] - b["ta"]).max()), storm_qc_dmax=float(abs(b["qc"] - a["qc"]).max()),
-                storm_el_dmax=float((b["el"] - a["el"]).max()))
+                storm_dta=float((b["ta"] - a["ta"])[peak].mean()),
+                storm_rng_nom=float(a["rng"][peak].mean()), storm_rng=float(b["rng"][peak].mean()),
+                storm_qc_dmax=float((b["qc"] - a["qc"]).max()), storm_qc_dmin=float((b["qc"] - a["qc"]).min()),
+                storm_el_dmax=float((b["el"] - a["el"]).max()), storm_el_dmin=float((b["el"] - a["el"]).min()))
 
+
+from exobem.environment.sites import mars_site  # noqa: E402
 
 MS = mars_year_stats()
+# long-wave parameters exactly as the code uses them, and their calibration (studies/calibrate_mars_storm_ir.py)
+_sig = inspect.signature(mars_site).parameters
+LW = dict(e0=_sig["sky_emissivity"].default[0], e1=_sig["sky_emissivity"].default[1], f_re=_sig["dust_reemission"].default)
+LWC = json.loads((ROOT / "studies" / "results" / "mars_storm_ir_calibration.json").read_text())
 v600, v900, f600, f900 = V["Case600_opaque"], V["Case900_opaque"], V["Case600FF_opaque"], V["Case900FF_opaque"]
 mpo, meq, mjz, mst = B["moon_pole"], B["moon_equator"], B["mars_jezero"], B["mars_jezero_storm"]
 env_po, env_eq, env_jz = E["moon_pole"], E["moon_equator"], E["mars_jezero"]
@@ -115,7 +127,7 @@ def related_work(m):
         "developed an open-source semi-empirical heat balance for Mars habitats outside the BES tradition [@Ross2022]. "
         "None of these modify the heat-balance physics: an EPW file can carry Martian temperatures and irradiances, but "
         "the engine still computes Earth solar geometry over a 24-hour day, applies air-based convection at 101 kPa, "
-        "assumes an Earth-like sky and lets outdoor air into the zone. To the authors' knowledge, no previous work has "
+        "assumes an Earth-like sky and lets outdoor air into the zone. To the author's knowledge, no previous work has "
         "modified EnergyPlus-family physics for vacuum or thin-CO2 convection, regolith ground coupling, the Martian sol "
         "or the lunar day, and no lunar application of an EnergyPlus-family tool has been reported.")
 
@@ -178,8 +190,7 @@ def method_coordination(m):
         "and air instead of a predictor–corrector; finite volumes instead of conduction transfer functions, because "
         "temperature-dependent regolith properties and metre-thick layers are outside the range of CTFs). The rest are "
         "deliberate reductions of scope: ExoBEM has a single zone and represents HVAC by ideal loads and post-processed "
-        "thermal-control and power systems, which is where the companion EnergyPlus fork ExoBEM-Core comes in "
-        "[@ZhangCore].")
+        "thermal-control and power systems (Section @sec:disc).")
     from eplus_compare import ROWS
     m.table(["Element", "EnergyPlus", "ExoBEM", "Relation"], [list(r) for r in ROWS],
             "ExoBEM compared with EnergyPlus.", col_widths_cm=[2.8, 5.0, 6.0, 2.2], font_size=7.0, label="eplus")
@@ -336,13 +347,13 @@ def method_sites(m):
         "with a Lambertian surface and a spherical-shell air mass m. The broadband single-scattering albedo "
         "ω_{0} = 0.885 and asymmetry parameter g = 0.74 were fitted to the normalized net-flux tables of Appelbaum and "
         "Flood [@Appelbaum1990;Appelbaum1993]. These are effective solar-band values: they are lower than visible-band "
-        "retrievals [@Wolff2009;ChenChen2019] because they absorb near-infrared absorption and two-stream error. The "
+        "retrievals [@Wolff2009;ChenChen2019] because they also absorb the effects of near-infrared gas absorption and of the two-stream approximation. The "
         "delta-scaled 'direct' flux of the solution includes the forward-scattering peak, which is not part of the beam "
         "a tilted surface sees from the solar disk; the beam is therefore taken from Beer's law with the true optical "
         "depth, G_{b,n} = (S/r²)exp(−τm), and the rest of the two-stream total is diffuse. Dust optical depth follows a "
         "seasonal climatology representative of Jezero crater (0.45 in the aphelion season, 0.85 near L_{s} = 245°) "
         "[@Lemmon2015;Lemmon2022;Montabone2015]. A global-storm scenario raises τ to 6 between L_{s} = 190° and 270° "
-        "[@Guzewich2019]. Surface pressure follows a two-harmonic fit to the CO2 cycle with its minimum at L_{s} ≈ 157° "
+        "[@Guzewich2019], beyond the τ ≤ 3 range of the fit (Section @sec:limits). Surface pressure follows a two-harmonic fit to the CO2 cycle with its minimum at L_{s} ≈ 157° "
         "(growth of the southern seasonal cap), its maximum at L_{s} ≈ 269° and a secondary maximum at L_{s} ≈ 64°, "
         "with a mean of 710 Pa. Ground temperature comes from a homogeneous regolith column with thermal inertia "
         "350 J m^{-2} K^{-1} s^{-1/2} and albedo 0.14, as measured at Jezero by MEDA [@Martinez2023], equilibrated over "
@@ -351,13 +362,17 @@ def method_sites(m):
         "T_{a} = T̄_{g} + κ(T_{g}(t−0.5 h) − T̄_{g}) with κ = 0.6, which reproduces the roughly 2:1 ratio of "
         "ground-to-air diurnal amplitude measured by MEDA and REMS [@RodriguezManfredi2021;GomezElvira2012;"
         "RodriguezManfredi2023]. Downwelling long-wave flux is")
-    m.equation(r"L^{\downarrow}=\varepsilon_{sky}\left(\tau\right)\sigma T_{a}^{4}+f_{re}\left\langle G_{toa,h}-G_{h}\right\rangle_{sol},\quad \varepsilon_{sky}=\min\left(0.08+0.125\,\tau,\;0.6\right)")
+    m.equation(r"L^{\downarrow}=\varepsilon_{sky}\left(\tau\right)\sigma T_{a}^{4}+f_{re}\left\langle G_{toa,h}-G_{h}\right\rangle_{sol},\quad \varepsilon_{sky}=\min\left(e_{0}+e_{1}\,\tau,\;0.6\right)")
     m.para(
-        "The first term is emission by CO2 and dust; the second re-emits a fraction f_{re} = 0.45 of the sunlight that "
-        "dust removes (sol-running mean), a one-layer-atmosphere energy term. The parameters were calibrated so that the "
-        "clear-season daily mean is about 30 W/m², as measured by MEDA/TIRS [@Martinez2023], and so that in a global "
-        "storm the sol-mean temperature drops by about 10 K while the diurnal range collapses, as observed in 2018 "
-        "[@Guzewich2019].")
+        "The first term is emission by CO2 and dust; the second re-emits a fraction f_{re} of the sunlight that dust "
+        "removes (sol-running mean), a one-layer-atmosphere energy term. The three parameters (e_{0} = "
+        f"{LW['e0']:.2f}, e_{{1}} = {LW['e1']:.2f}, f_{{re}} = {LW['f_re']:.2f}) were calibrated against two observations: "
+        "the clear-season daily mean of about 30 W/m² measured by MEDA/TIRS "
+        f"[@Martinez2023] (model {LWC['best']['L_clear_mean']:.0f} W/m²), and the response to the 2018 global dust "
+        "storm, during which Curiosity saw the diurnal range of air temperature collapse while its diurnal mean fell by "
+        f"only about 4 K [@Guzewich2019;ViudezMoreiras2019] (model {LWC['best']['dT_mean_storm_K']:+.0f} K). The storm "
+        "response is sensitive to f_{re}: without re-emission the sol-mean air temperature would fall by more than 20 K, "
+        "and with f_{re} near 0.5 it would rise.")
 
 
 def method_pwf(m):
@@ -374,8 +389,9 @@ def method_pwf(m):
         "temperature in vacuum). On reading, ExoBEM applies physical checks only: non-negative irradiance, temperatures "
         "above the 2.725 K cosmic background, a pressure consistent with the declared atmosphere. The command "
         "exobem weather writes PWF files from the generators of Section @sec:sites, other sources (the Mars Climate "
-        "Database [@Millour2018], rover data) can be converted to it, and the companion engine ExoBEM-Core reads the same "
-        "files, so that both tools can be run on identical environments.")
+        "Database [@Millour2018], rover data) can be converted to it, and because the format is plain text with a "
+        "self-describing header, other simulation programs can read the same files and be run on identical "
+        "environments.")
     rows = [[n, u, d.replace("(optional)", "").strip(), "yes" if req else "no"] for n, _a, u, d, req in COLUMNS]
     m.table(["Column", "Unit", "Meaning", "Required"], rows,
             "Columns of a Planetary Weather Format (PWF) file. The full specification is in docs/weather_format.md.",
@@ -480,8 +496,8 @@ def verif_eplus(m):
                      pct(d["exobem_heating_kWh"], d["eplus_heating_kWh"]),
                      f0(d["eplus_cooling_kWh"]), f0(d["exobem_cooling_kWh"]),
                      pct(d["exobem_cooling_kWh"], d["eplus_cooling_kWh"]),
-                     f"{d['eplus_peak_heating_W']/1000:.2f} / {d['exobem_peak_heating_W']/1000:.2f}",
-                     f"{d['eplus_peak_cooling_W']/1000:.2f} / {d['exobem_peak_cooling_W']/1000:.2f}",
+                     f"{d['eplus_peak_heating_W']/1000:.3f} / {d['exobem_peak_heating_W']/1000:.3f}",
+                     f"{d['eplus_peak_cooling_W']/1000:.3f} / {d['exobem_peak_cooling_W']/1000:.3f}",
                      f"{d['hourly_net_load_R2']:.4f}", f"{d['hourly_net_load_CVRMSE_pct']:.1f}"])
     m.table(["Case", "Heating E+ (kWh)", "Heating ExoBEM (kWh)", "Diff.", "Cooling E+ (kWh)", "Cooling ExoBEM (kWh)",
              "Diff.", "Peak heat E+/Exo (kW)", "Peak cool E+/Exo (kW)", "Hourly R²", "CV(RMSE) %"],
@@ -498,8 +514,12 @@ def verif_eplus(m):
         f"Annual heating differs by {pct(v600['exobem_heating_kWh'], v600['eplus_heating_kWh'])} (Case 600) and "
         f"{pct(v900['exobem_heating_kWh'], v900['eplus_heating_kWh'])} (Case 900), and annual cooling by "
         f"{pct(v600['exobem_cooling_kWh'], v600['eplus_cooling_kWh'])} and {pct(v900['exobem_cooling_kWh'], v900['eplus_cooling_kWh'])} "
-        "(Table @tab:eplusloads). Peak loads agree within 1%, and hourly net loads have R² above 0.998 (Fig. @[fig:eplusverif]a). These differences are "
-        "far smaller than the spread between programs in the ASHRAE 140 reference results. Free-floating temperatures "
+        "(Table @tab:eplusloads). Peak heating loads agree within "
+        f"{max(abs(d['exobem_peak_heating_W']/d['eplus_peak_heating_W']-1) for d in (v600, v900))*100:.1f}% and peak "
+        f"cooling loads within {max(abs(d['exobem_peak_cooling_W']/d['eplus_peak_cooling_W']-1) for d in (v600, v900))*100:.1f}%, "
+        "and hourly net loads have R² above 0.998 (Fig. @[fig:eplusverif]a). Because the windows were removed, the "
+        "acceptance ranges of ASHRAE 140 do not apply to these cases; the comparison is code-to-code and tests the "
+        "opaque heat balance, not the planetary physics, which is checked in Section @sec:vplanet. Free-floating temperatures "
         f"agree with an annual RMSE of {f2(f600['T_RMSE_K'])} K (600FF) and {f2(f900['T_RMSE_K'])} K (900FF) and a mean "
         "bias under 0.05 K (Table @tab:eplusff, Fig. @[fig:eplusverif]b–c). The remaining differences come from documented implementation choices: "
         "finite volumes versus conduction transfer functions, implicit Euler versus third-order backward differencing "
@@ -522,7 +542,8 @@ def verif_planet(m):
         ["Jezero surface pressure (daily means)", "≈625–790 Pa; minimum near L_{s} 150°", f"{env_jz['P_min']:.0f}–{env_jz['P_max']:.0f} Pa; minimum at L_{{s}} 157°", "[@RodriguezManfredi2023]"],
         ["Jezero air temperature at 1.45 m", "≈188–262 K", f"{env_jz['T_air_min_K']:.0f}–{env_jz['T_air_max_K']:.0f} K", "[@RodriguezManfredi2023]"],
         ["Jezero ground temperature", "≈183–290 K", f"{env_jz['T_ground_min_K']:.0f}–{env_jz['T_ground_max_K']:.0f} K", "[@Martinez2023]"],
-        ["Jezero downwelling long-wave flux", "≈30 W/m² daily mean (20–45 W/m²)", f"{env_jz['L_down_mean']:.0f} W/m² mean ({env_jz['L_down_min']:.0f}–{env_jz['L_down_max']:.0f} W/m²)", "[@Martinez2023]"],
+        ["Jezero downwelling long-wave flux", "≈30 W/m² clear-season daily mean (20–45 W/m²)", f"{env_jz['L_down_clear_mean']:.0f} W/m² clear-season mean ({env_jz['L_down_min']:.0f}–{env_jz['L_down_max']:.0f} W/m² over the year)", "[@Martinez2023]"],
+        ["2018 global dust storm, change of diurnal-mean air temperature", "about −4 K (Gale)", f"{MS['storm_dta']:+.0f} K (Jezero, τ = 6)", "[@ViudezMoreiras2019]"],
         ["Lunar south-polar ridge illumination", "92.3% at 2 m (Connecting Ridge)", f"{100*env_po['sunlit_fraction']:.1f}% (horizon −1.65°)", "[@Glaser2014]"],
         ["Vertical radiator sink, lunar equator, noon", "≈333 K", f"{RAD['Vertical, faces N/S (baseline, 96 m2)']['sink_max_K']:.0f} K", "[@Bien1969]"],
         ["Lunar habitat night heat leak at 293 K (NASA)", "≈1550 W (used to calibrate the MLI)", f"{CAL['night_loss_W']:.0f} W (MLI R = {CAL['mli_R_m2K_W']:.1f} m²K/W)", "[@Schunk2022]"],
@@ -686,7 +707,8 @@ def case_studies(m):
         "Table @tab:radiator compares radiator options at the equator. Turning the vertical radiator from the poles to "
         "east–west makes it face the low morning and evening Sun and costs about 13% more electricity. Doubling the "
         f"vertical area saves {100*(1 - v2['tcs_kWh_per_day']/RAD['Vertical, faces N/S (baseline, 96 m2)']['tcs_kWh_per_day']):.0f}%, "
-        "because at noon the sink is above the cabin temperature whatever the area. A horizontal radiator does not "
+        "less than one might expect: the larger area lowers the radiator temperature needed in the morning and evening, "
+        "but at noon the sink is above the cabin temperature whatever the area. A horizontal radiator does not "
         f"see the regolith and its clean sink never exceeds {h['sink_max_K']:.0f} K, but with one radiating face it needs "
         f"lift {100*h['heat_pump_frac']:.0f}% of the time; if lunar dust raises its absorptance to 0.35 [@Gaier2008] its "
         f"noon sink climbs to {hd['sink_max_K']:.0f} K and it draws {f1(hd['tcs_kWh_per_day'])} kWh/d. Radiator "
@@ -713,8 +735,14 @@ def case_studies(m):
         f"{abs(mm['Aerogel 40 mm on legs (baseline)']['min_surface_minus_dewpoint_K']):.1f} K below the dew point; a 1 m "
         "regolith cover removes it entirely (surfaces stay "
         f"{mm['Aerogel + 1 m regolith']['min_surface_minus_dewpoint_K']:.1f} K above the dew point) while turning the "
-        "habitat into a cooling-dominated building. A lower humidity set-point would achieve the same at the cost of "
-        "more condensing-heat-exchanger work.")
+        "habitat into a cooling-dominated building. The condensation result depends on the cabin set-points. The "
+        "baseline cabin sits at the top of its control band, 25 °C and 60% relative humidity, because the habitat "
+        "always needs cooling and the crew always add water. Limiting the humidity to 50% or 40% reduces the risk to "
+        f"{CSP['25 C, 50%']['condensation_risk_hours']:.0f} and {CSP['25 C, 40%']['condensation_risk_hours']:.0f} hours "
+        "a year; the water removed is the same, but the condensing heat exchanger must then run at a lower dew point, "
+        "a cost the ideal-load model does not resolve. A 22 °C cabin at 60% gives "
+        f"{CSP['22 C, 60%']['condensation_risk_hours']:.0f} hours and at 50% "
+        f"{CSP['22 C, 50%']['condensation_risk_hours']:.0f} hours.")
     m.figure(FIG / "fig7_envelopes.png",
              "Daily heating and cooling loads of the cabin air for envelope variants at the three sites (kWh per Earth day).",
              16.0, label="envelopes")
@@ -724,12 +752,14 @@ def case_studies(m):
         f"Over the Mars year at Jezero (Fig. @fig:marsyear), sol-mean insolation varies between {MS['ghi_min']:.0f} and "
         f"{MS['ghi_max']:.0f} W/m², and sol-mean air temperature between {MS['ta_min']:.0f} and {MS['ta_max']:.0f} °C. A "
         f"2018-type global storm cuts sol-mean insolation to {MS['storm_ghi_min']:.0f} W/m² and keeps it below 60 W/m² for "
-        f"{MS['storm_sols']} sols. Dust re-emits part of the absorbed sunlight as infrared, so the nights warm, the days "
-        f"cool and the sol-mean air temperature falls by at most {MS['storm_ta_drop']:.0f} K, consistent with the 2018 "
-        "observations [@Guzewich2019]. The habitat responds through its envelope and its radiator: with warmer nights "
-        "and a dust-warmed sky it loses less heat, so its sol-mean cabin cooling load changes by up to "
-        f"{MS['storm_qc_dmax']/1000:.1f} kW, and the warmer radiator sink adds up to {MS['storm_el_dmax']/1000:.1f} kW of "
-        "heat-pump power. These are modest changes for a habitat whose internal gains are about 14 kW; the power system "
+        f"{MS['storm_sols']} sols. Dust re-emits part of the absorbed sunlight as infrared, so the nights warm and the days "
+        f"cool: at peak opacity the diurnal air-temperature range shrinks from {MS['storm_rng_nom']:.0f} to "
+        f"{MS['storm_rng']:.0f} K while the sol-mean air temperature changes by {MS['storm_dta']:+.0f} K, as observed by "
+        "Curiosity in 2018 [@Guzewich2019;ViudezMoreiras2019]. The habitat responds through its envelope and its "
+        "radiator. Its envelope loses less heat to the warmer night sky, so its sol-mean cabin cooling load rises by up "
+        f"to {MS['storm_qc_dmax']/1000:.1f} kW; by day the dimmed Sun lowers the radiator sink, so thermal-control power "
+        f"falls by up to {-MS['storm_el_dmin']/1000:.1f} kW. These are modest changes for a habitat whose internal gains "
+        "are about 14 kW; the power system "
         "is affected far more, as shown next.")
     m.figure(FIG / "fig6_mars_year.png",
              "One Mars year at Jezero crater. (a) Sol-mean global horizontal irradiance, nominal and with a global dust "
@@ -769,12 +799,18 @@ def case_studies(m):
         "is needed to ride out the weeks of darkness, while the habitat's thermal loads hardly change. At the polar ridge "
         "the uniform horizon produces a polar-winter eclipse of "
         f"{env_po['longest_dark_days']:.0f} days and {pp['PV x2 + Li-ion']['storage_kWh']/1000:.1f} MWh of storage with "
-        f"twice the array; NASA's 100-hour design eclipse would need {pp['eclipse_100h_storage_kWh']/1000:.1f} MWh. A "
-        "single 40 kWe fission unit meets every case independently of light and dust; it produces more than twice the "
-        "demand, so the surplus is available for other surface loads (in-situ resource production, rovers) or is "
-        f"shunted, and it rejects about {pp['Fission 40 kWe']['waste_heat_kW']:.0f} kW of waste heat through its own "
-        "radiator. In vacuum the sunlit cells of a lunar two-axis array run at 330–380 K, lowering their efficiency by "
-        "10–20% relative to the 28 °C rating, an effect absent from Earth building tools.")
+        f"twice the array; NASA's 100-hour design eclipse would need {pp['eclipse_100h_storage_kWh']/1000:.1f} MWh "
+        "(nameplate, as in Table @tab:power). A single 40 kWe fission unit meets every case independently of light and "
+        "dust; it produces more than twice the demand, so the surplus is available for other surface loads (in-situ "
+        "resource production, rovers) or is shunted, and it rejects about "
+        f"{pp['Fission 40 kWe']['waste_heat_kW']:.0f} kW of waste heat through its own radiator. The comparison of "
+        "energy is not a comparison of systems: NASA's Fission Surface Power design goal is under 6 t for a 10-year "
+        f"life [@Kaldon2024], against {pp['PV x2 + Li-ion']['storage_mass_t']:.0f}–{pe['PV + Li-ion']['storage_mass_t']:.0f} t "
+        "of Li-ion for the lunar cases, but it excludes the reactor's radiator, power cable and "
+        "emplacement, and a single reactor is a single point of failure that a crewed base would back up with a second "
+        "unit or with storage sized for the critical load. In vacuum the sunlit cells of a lunar two-axis array run at "
+        f"330–380 K, lowering their efficiency by {0.23*(330-301.15):.0f}–{0.23*(380-301.15):.0f}% relative to the "
+        "28 °C rating (γ = −0.0023 K^{-1}), an effect absent from Earth building tools.")
     m.figure(FIG / "fig9_power.png",
              "Power systems. (a) Usable storage needed to meet the load against the PV array area (multiples of the "
              "energy-balance area), Li-ion. (b) Daily minimum battery state of charge with twice the energy-balance array.",
@@ -783,8 +819,11 @@ def case_studies(m):
     m.heading("Convection under reduced gravity and pressure", 2)
     m.para(
         "Fig. @fig:convection quantifies why convection coefficients cannot be carried over from Earth. Cabin natural "
-        "convection on a 2.5 m wall with a 3 K temperature difference drops from about 2.1 W/(m²·K) at 1 g and 101 kPa "
-        "to about 0.9 W/(m²·K) at lunar gravity and 70.3 kPa. That is comparable to the forced coefficient at a "
+        "convection on a 2.5 m wall with a 3 K temperature difference drops from about "
+        f"{np.interp(9.807, R['convection']['g'], R['convection']['101.3']):.1f} W/(m²·K) at 1 g and 101 kPa to about "
+        f"{np.interp(1.625, R['convection']['g'], R['convection']['56.5']):.2f} W/(m²·K) at lunar gravity in the "
+        f"56.5 kPa cabin of the reference habitats ({np.interp(3.721, R['convection']['g'], R['convection']['56.5']):.2f} "
+        "W/(m²·K) at Mars gravity). That is comparable to the forced coefficient at a "
         "0.15 m/s ventilation velocity, so cabin ventilation, not buoyancy, controls interior surface heat transfer on "
         "the Moon. Outside on Mars, mixed convection in 700 Pa CO2 gives 0.15–0.7 W/(m²·K) over the full range of wind "
         "speeds, 20–70 times less than on Earth at the same wind speed. Exterior convection on Mars is therefore a "
@@ -817,15 +856,15 @@ def implications(m):
 
 def limitations(m, title="Limitations"):
     """Discussion: limitations of ExoBEM."""
-    m.heading(title, 2)
+    m.heading(title, 2, label="limits")
     m.bullets([
-        "**Single zone.** Multi-zone habitats, airlocks as separate zones and inter-module air exchange are not yet modelled; ExoBEM-Core provides EnergyPlus's multi-zone capability [@ZhangCore].",
+        "**Single zone.** Multi-zone habitats, airlocks as separate zones and inter-module air exchange are not yet modelled.",
         "**Ideal systems.** Radiators, heat pumps and storage are quasi-steady models without component dynamics; cold-plate fractions and the life-support share of the electric load are assumptions where no public source exists.",
         "**Idealized terrain.** Horizons are uniform or user-supplied profiles; DEM horizons (LOLA, HiRISE) and shading between modules are planned. The uniform polar horizon overstates eclipse length.",
         "**Empirical Mars boundary layer.** Near-surface air temperature uses a calibrated surrogate, and the regolith surface exchanges no sensible heat with the air; Mars Climate Database input through the PWF format is the planned route to better atmospheres [@Millour2018;Forget1999].",
         "**Effective dust optics.** Broadband scattering parameters are fitted to Appelbaum–Flood tables; the Beer-law beam with the forward-scattered peak counted as diffuse is a modelling choice that measured Martian direct/diffuse data should confirm [@Wolff2009;ChenChen2019].",
-        f"**Storm infrared.** The dust re-emission term was calibrated to the observed temperature response; peak downwelling infrared in the τ = 6 storm ({E['mars_jezero_storm']['L_down_max']:.0f} W/m²) is probably overestimated and should be checked against MEDA and REMS storm data.",
-        "**Verification scope.** The Earth core was compared with EnergyPlus on opaque cases and the habitat envelope with one NASA thermal analysis; empirical validation in thermal-vacuum chambers and analog habitats remains to be done.",
+        f"**Dust storms.** The storm case (τ = 6) lies outside the 0.1 ≤ τ ≤ 3 range of the Appelbaum–Flood tables used to fit the two-stream model, so its insolation is an extrapolation; the dust re-emission term is calibrated to a single storm response observed at another site (Gale crater), and the peak downwelling infrared in the storm ({E['mars_jezero_storm']['L_down_max']:.0f} W/m²) has not been checked against measurements. Storm results are scenarios, not predictions.",
+        "**Verification scope.** The EnergyPlus comparison tests the Earth heat balance only; the planetary models are checked against reference data component by component, and the habitat envelope is calibrated to one NASA thermal analysis and checked at a second operating point (+24%). Empirical validation of a whole habitat in thermal-vacuum chambers or analog habitats remains to be done.",
     ])
 
 

@@ -173,9 +173,9 @@ def main():
     tidy(a)
 
     # ------------------------------------------------------------------ bottom line
-    fig.text(0.012, 0.06, "Verified against EnergyPlus (within 0.7 %)  ·  open-source Python", fontsize=7.6,
-             color=INK2, va="center")
-    fig.text(0.992, 0.06, "Or one 40 kWe fission unit: no storage needed", fontsize=8.2, color=INK,
+    fig.text(0.012, 0.06, "Earth heat balance verified against EnergyPlus (0.7 %)  ·  open-source Python",
+             fontsize=7.3, color=INK2, va="center")
+    fig.text(0.992, 0.06, "Or one 40 kWe fission unit (6 t goal)", fontsize=8.2, color=INK,
              weight="bold", ha="right", va="center")
 
     out = HERE / "ExoBEM_graphical_abstract.png"
