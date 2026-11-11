@@ -10,3 +10,7 @@ build/
 dist/
 ~$*.docx
 studies/fig_log.txt
+
+# personal working copies and Word lock files
+paper/**/*working folder*/
+~$*
