@@ -2,7 +2,7 @@
 
     python docs/logo/make_logo.py
 Design: a regolith-covered habitat module on a planetary horizon under the Sun, with heat leaving the roof as
-infrared arcs; the wordmark follows.  (The independent engine Thermonaut has its own logo in its repository.)
+infrared arcs; the wordmark follows.
 """
 from pathlib import Path
 

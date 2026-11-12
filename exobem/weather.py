@@ -3,7 +3,7 @@
 PWF plays the role that the EPW weather file plays for EnergyPlus, without EPW's Earth
 assumptions (8760 one-hour records, a 24-hour day, Earth range checks, an atmosphere).
 A PWF file is plain CSV preceded by ``#`` header lines; it is written by ExoBEM's
-environment generators (``exobem weather ...``) and read by ExoBEM and by Thermonaut.
+environment generators (``exobem weather ...``) and read by ExoBEM.
 
 Layout (full specification: docs/weather_format.md)::
 

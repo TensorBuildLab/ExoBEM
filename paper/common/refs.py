@@ -85,11 +85,9 @@ REFS = {
     "Hickey1995": "G.S. Hickey, D. Braun, L.-C. Wen, H.J. Eisen, Integrated lightweight structure and thermal insulation for Mars rover, SAE Technical Paper 951523, 1995. https://doi.org/10.4271/951523",
     "Schaezler2011": "R.N. Schaezler, A.J. Cook, D.J. Leonard, A. Ghariani, Trending of overboard leakage of ISS cabin atmosphere, in: 41st International Conference on Environmental Systems, AIAA 2011-5149, 2011. https://ntrs.nasa.gov/citations/20110012997",
     # ---------------------------------------------------------------- engine work
-    "ZhangCore": "L. Zhang, Thermonaut: auditing and adapting the EnergyPlus engine for building energy simulation on the Moon and Mars, companion manuscript in preparation, 2026.",
     "ZhangExoBEM": "L. Zhang, ExoBEM: building energy simulation of sealed lunar and Martian habitats based on the EnergyPlus heat-balance method, manuscript submitted to Applied Energy, 2026. Software: https://github.com/TensorBuildLab/ExoBEM",
     "EPlus262": "U.S. Department of Energy, EnergyPlus Version 26.2.0 Documentation: Engineering Reference, U.S. DOE Building Technologies Office, 2026.",
     "ExoBEMRepo": "TensorBuildLab, ExoBEM: building energy simulation for lunar and Martian habitats, version 0.1.0, https://github.com/TensorBuildLab/ExoBEM, 2026.",
-    "ThermonautRepo": "TensorBuildLab, Thermonaut: a planetary building energy engine based on EnergyPlus v26.2, https://github.com/TensorBuildLab/Thermonaut, 2026.",
     "Horizons": "J.D. Giorgini, D.K. Yeomans, A.B. Chamberlin, et al., JPL's on-line solar system data service, Bull. Am. Astron. Soc. 28 (1996) 1158. Service: https://ssd.jpl.nasa.gov/horizons/",
     "NISTWebBook": "E.W. Lemmon, I.H. Bell, M.L. Huber, M.O. McLinden, Thermophysical properties of fluid systems, in: P.J. Linstrom, W.G. Mallard (Eds.), NIST Chemistry WebBook, NIST Standard Reference Database 69, National Institute of Standards and Technology, Gaithersburg, MD. https://doi.org/10.18434/T4D303",
     "Seem1987": "J.E. Seem, Modeling of Heat Transfer in Buildings, Ph.D. thesis, University of Wisconsin–Madison, 1987.",

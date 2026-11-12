@@ -1,6 +1,6 @@
 # Planetary Weather Format (PWF) 1.0
 
-PWF is the weather-file format of ExoBEM and Thermonaut. It plays the role that the EPW file plays for
+PWF is the weather-file format of ExoBEM. It plays the role that the EPW file plays for
 EnergyPlus, without EPW's Earth assumptions. It is plain text, so it can be read by any tool, and it is
 written by ExoBEM's environment generators:
 
@@ -109,27 +109,13 @@ valid data.
 
 ## Using a PWF file
 
-**ExoBEM (Python)** – in a JSON model:
+In a JSON model:
 
 ```json
 "site": {"weather_file": "jezero.pwf"}
 ```
 
 or in Python: `env = exobem.weather.read_pwf("jezero.pwf")`. The model's `timestep_s` must equal the file's.
-
-**Thermonaut (C++)** – in the IDF:
-
-```
-Site:PlanetaryBody,
-  Habitat, Mars, EarthClock, 2030, autocalculate, 70300, 0.265, 0.15, 6.0, 0.0,
-  autocalculate, autocalculate, autocalculate, autocalculate, 3.0, 710, Climatology, 0.5, 0, 0, 0, 3.2, 2.0,
-  jezero.pwf;                       !- Planetary Weather File Name
-```
-
-No EPW is then needed (`energyplus -d out habitat.idf`). Thermonaut writes a calendar-only EPW to the output
-folder for its run-period machinery, keeps computing the sun from its own ephemeris, and interpolates every
-other value from the PWF file to its time step (solar columns at mid-interval, state columns at interval end).
-The PWF file must cover the run period.
 
 ## Producing PWF files from other sources
 

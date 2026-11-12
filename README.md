@@ -60,7 +60,6 @@ print(res.summary())
 | Mars24 worked example; Diviner lunar temperatures; Appelbaum–Flood Mars insolation; MEDA at Jezero | Reproduced (see the paper) |
 | NASA Artemis surface habitat, night heat leak 1550 W / daylight net loss 850 W | Calibrated / 1053 W (+24 %) |
 | Analytic: curved-shell conduction, PV cell in vacuum, cabin vapour balance, erfc conduction, ScriptF | Exact to < 10⁻⁶–10⁻³ |
-| Thermonaut (independent EnergyPlus fork) on the same weather files | Cooling energy within 0.2 % (Moon) and 1.4 % (Mars) |
 
 Run the test suite with `python -m pytest -q`. To reproduce the EnergyPlus comparison, see
 [Running the EnergyPlus comparison](#running-the-energyplus-comparison).
@@ -98,7 +97,7 @@ docs/                   install guide, tutorial, weather format, factor analysis
 tests/                  analytical, reference-data and EnergyPlus-parity tests
 verification/           EnergyPlus 23.2 comparison (IDF generator + comparison script)
 studies/                case studies and figures for the paper
-paper/                  manuscripts: ExoBEM/ (this tool), Thermonaut/ (C++ engine), archive/
+paper/                  manuscript of ExoBEM (paper/ExoBEM)
 ```
 
 ## Running the EnergyPlus comparison
@@ -109,12 +108,6 @@ for f in verification/energyplus/idf/*.idf; do n=$(basename $f .idf); \
   energyplus -w USA_CO_Golden-NREL.724666_TMY3.epw -d verification/energyplus/runs/$n -r $f; done
 python verification/compare_energyplus.py
 ```
-
-## Related engine: Thermonaut
-
-[Thermonaut](https://github.com/TensorBuildLab/Thermonaut) is a separate project: a fork of the full EnergyPlus
-v26.2 engine with a planetary mode. Neither tool needs the other. Both read PWF weather files, so a design can be
-run in both on the same environment; on the lunar and Martian verification habitats they agree within about 1.5 %.
 
 ## Citation
 

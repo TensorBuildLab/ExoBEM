@@ -86,7 +86,7 @@ def factor_table(m):
     """The Earth / Moon / Mars factor analysis with the ExoBEM treatment of each factor."""
     from factors import FACTORS
     rows, cat = [], None
-    for c, fac, earth, moon, mars, exo, _core in FACTORS:
+    for c, fac, earth, moon, mars, exo in FACTORS:
         if c != cat:
             rows.append([f"**{c}**", "", "", "", ""])
             cat = c
