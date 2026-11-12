@@ -97,7 +97,7 @@ def main():
         cmp_gen = json.loads((RUNS / f"{case}_gen" / "comparison.json").read_text())
         summary[case] = dict(hours_total=n, steps_per_hour=sph, comparison=cmp, comparison_generator=cmp_gen)
         print(case, n, "hours")
-    # NASA-class lunar habitat: hourly C++ and Python series
+    # NASA-informed lunar habitat: hourly C++ and Python series
     hd = CORE / "planetary" / "cases" / "lunar_habitat"
     ref = np.load(hd / "python_ref.npz")
     db = sqlite3.connect(hd / "out" / "eplusout.sql")
@@ -123,7 +123,33 @@ def main():
     summary["horizons"] = json.loads((cases / "horizons" / "horizons_check.json").read_text())
     summary["boundary"] = json.loads((cases / "boundary_check.json").read_text())
     summary["moon_regolith"] = json.loads((cases / "moon_regolith_check.json").read_text())
-    summary["meta"] = dict(source="Thermonaut M2d (branch thermonaut) and Python ExoBEM v0.2",
+    # robustness, humidity, convection scope, planetary tests, Earth regression (two climates), audit inventory
+    summary["robustness"] = json.loads((cases / "robustness.json").read_text())
+    summary["humidity"] = json.loads((cases / "humidity_check.json").read_text())
+    summary["mars_convection"] = json.loads((cases / "mars_convection_scope.json").read_text())
+    summary["planetary_tests"] = json.loads((CORE / "planetary" / "tests" / "test_results.json").read_text())
+    runs_root = CORE.parent / "exo-runs"
+    summary["earth_regression"] = {w: json.loads((runs_root / f"earth_regression_{w}" / "summary.json").read_text())
+                                   for w in ("chicago", "phoenix")}
+    summary["audit_inventory"] = json.loads((CORE / "planetary" / "audit" / "inventory" / "audit_inventory_summary.json").read_text())
+    import shutil
+    shutil.copyfile(CORE / "planetary" / "audit" / "inventory" / "audit_inventory.csv", OUT / "audit_inventory.csv")
+    rr = runs_root / "m2e_cases" / "summary.json"
+    summary["case_rerun"] = json.loads(rr.read_text()) if rr.exists() else {}
+    # refused object types (with reasons where the validator gives one) and the patch-set history
+    import re
+    src = (CORE / "src" / "EnergyPlus" / "PlanetaryBody.cc").read_text(encoding="utf-8")
+    body = src[src.index("void ValidateInput("):src.index("// ---------------------------------------------------------------------------------------------- environment")]
+    first = body[body.index("blocked = {"):body.index("};", body.index("blocked = {"))]
+    refused = [[o, "needs outdoor air, Earth weather or an Earth-only model"] for o in re.findall(r'"([A-Za-z0-9:\-]+)"', first)]
+    refused += [[o, why] for o, why in re.findall(r'\{"([A-Za-z0-9:\-]+)", "([^"]+)"\}', body)]
+    summary["refused"] = refused
+    versions = []
+    for f in sorted((CORE / "planetary" / "tools").glob("apply_hooks_m*.py")):
+        doc = f.read_text(encoding="utf-8").split('"""')[1]
+        versions.append([f.stem.replace("apply_hooks_", "").upper(), " ".join(doc.split("Run from")[0].split())])
+    summary["versions"] = versions
+    summary["meta"] = dict(source="Thermonaut M2e (branch thermonaut) and Python ExoBEM v0.2",
                            moon_window="second lunation (720 h)", mars_window="days 16-31 (384 h)",
                            modes="comparison = engine reading the PWF file; comparison_generator = engine's own environment generator")
     (OUT / "core_summary.json").write_text(json.dumps(summary, indent=1))

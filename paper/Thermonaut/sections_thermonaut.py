@@ -1,32 +1,26 @@
-"""Sections of the Thermonaut (C++ engine) manuscript.
+"""Sections of the Thermonaut manuscript (Journal of Building Performance Simulation version).
 
-Numbers are read from paper/Thermonaut/data/core_facts.json and paper/Thermonaut/data/core_summary.json
-(written by paper/Thermonaut/extract_thermonaut_data.py from the Thermonaut repository and its verification runs).
+Numbers come from paper/Thermonaut/data/core_facts.json and core_summary.json, written by extract_thermonaut_data.py
+from the Thermonaut repository and its verification runs.  ANON = True withholds identifying links for double-anonymous
+review (the separate title page carries them).
 """
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 FIG = HERE / "figures"
-sys.path.insert(0, str(ROOT / "paper" / "common"))
 F = json.loads((HERE / "data" / "core_facts.json").read_text(encoding="utf-8-sig"))
 S = json.loads((HERE / "data" / "core_summary.json").read_text(encoding="utf-8-sig"))
-AF = F["audit_facts"]
-DIFF = F["diff"]
-UT = F["unit_tests"]
-RT = F["run_time_s"]
-CM = S["moon_equator"]["comparison"]              # engine reads the planetary weather file
-CR = S["mars_jezero"]["comparison"]
-CMg = S["moon_equator"]["comparison_generator"]   # engine generates its own environment
-CRg = S["mars_jezero"]["comparison_generator"]
-LH = S["lunar_habitat"]
-LHF = F["lunar_habitat"]
-PV = S["pv_vacuum"]
+AF, DIFF, UT, RT = F["audit_facts"], F["diff"], F["unit_tests"], F["run_time_s"]
+CM, CR = S["moon_equator"]["comparison"], S["mars_jezero"]["comparison"]                       # engine reads the PWF file
+CMg, CRg = S["moon_equator"]["comparison_generator"], S["mars_jezero"]["comparison_generator"]  # engine's own generator
+LH, LHF, PV = S["lunar_habitat"], F["lunar_habitat"], S["pv_vacuum"]
 HZ, BC, MR = S["horizons"], S["boundary"], S["moon_regolith"]
+RB, HU, MC = S["robustness"], S["humidity"], S["mars_convection"]
+TS, ER, AU = S["planetary_tests"], S["earth_regression"], S["audit_inventory"]
 N_FIND = sum(a["P0"] + a["P1"] + a["P2"] for a in F["audit"]["areas"])
 N_P0 = sum(a["P0"] for a in F["audit"]["areas"])
 N_P1 = sum(a["P1"] for a in F["audit"]["areas"])
@@ -34,6 +28,11 @@ N_P2 = sum(a["P2"] for a in F["audit"]["areas"])
 N_EARTH = len(F["earth_regression"]["files"])
 KLOC = F["source_lines_cc_hh"] / 1000
 ENGINE_SHARE = 100 * DIFF["insertions"] / F["source_lines_cc_hh"]
+N_VALUES = sum(v.get("n_values", 0) for v in ER["chicago"].values())
+N_IDENT = {w: sum(v["status"] == "identical" for v in ER[w].values()) for w in ER}
+N_RUN = {w: sum(v["status"] in ("identical", "differs") for v in ER[w].values()) for w in ER}
+AU_NOTES = sum(AU["by_priority"].get("none", {}).values())
+DISP = ["modified", "refused", "avoided", "deferred", "harmless"]
 
 
 def dpct(c):
@@ -41,851 +40,641 @@ def dpct(c):
     return 100 * (e["ep_cooling_kWh"] / e["py_cooling_kWh"] - 1)
 
 
-MOON_DIFF, MARS_DIFF = dpct(CM), dpct(CR)          # PWF mode (headline)
-MOON_DIFF_G, MARS_DIFF_G = dpct(CMg), dpct(CRg)    # generator mode
-HAB_S = LH["energy"]["sensible_diff_pct"]
-HAB_L = LH["energy"]["latent_diff_pct"]
-
-COMBINED = False
+MOON_DIFF, MARS_DIFF = dpct(CM), dpct(CR)
+MOON_DIFF_G, MARS_DIFF_G = dpct(CMg), dpct(CRg)
+HAB_S, HAB_L = LH["energy"]["sensible_diff_pct"], LH["energy"]["latent_diff_pct"]
+ANON = True
 
 
-def exo_ref():
-    return "(Section @sec:method)" if COMBINED else "[@ZhangExoBEM]"
+def sec(*labels):
+    return "Section" + ("s " if len(labels) > 1 else " ") + " and ".join(f"@sec:{x}" for x in labels)
 
 
 # =========================================================================== background
-def engine_background(m):
-    """How the EnergyPlus engine meets its environment (level-2 subsection)."""
+def background(m):
     m.heading("Where EnergyPlus meets its environment", 2, label="enginebg")
     m.para(
         "EnergyPlus advances a nested loop over run periods, days, hours and zone time steps [@EPlus262;Crawley2001]. "
-        "At the start of each day the weather manager reads the next day of the weather file, computes the Earth "
-        "solar declination and equation of time from Fourier fits keyed on the day of year, and interpolates the "
-        "hourly records to the zone time step. Within the day the solar routines turn clock time, longitude and "
-        "time-zone meridian into a sun direction with an hour angle that advances 15° per hour. The surface heat "
-        "balance then applies exterior convection correlations for air, splits long-wave exchange among sky, air and "
-        "ground, solves conduction with conduction transfer functions (CTF) [@Seem1987] or the conduction finite "
-        "difference (CondFD) algorithm [@TabaresVelasco2012], couples inside faces to the zone air, and passes the "
-        "zone load to HVAC, plant and electric-power models, all of which take their air properties from the outdoor "
-        "barometric pressure.")
-    m.para(
-        "None of this is wrong on Earth; it is the reason EnergyPlus is fast and robust. But the Earth enters in many "
-        "places at once, often as literals (3600 s, 15°/h, 1 atm, 9.81 m/s²) or as conventions (the ground is at air "
-        "temperature; the zone is at outdoor pressure) that are not visible in the input. A model of a lunar habitat "
-        "therefore cannot be made correct by editing the weather file alone, and an engine fork must first find "
-        "where the planet is hidden.")
+        "Each day the weather manager reads the weather file, computes the Earth solar declination and equation of "
+        "time from Fourier fits and interpolates hourly records to the time step; the solar routines advance the hour "
+        "angle at 15° per hour. The surface heat balance applies convection correlations for air, splits long-wave "
+        "exchange among sky, air and ground, conducts through walls with conduction transfer functions (CTF) "
+        "[@Seem1987] or conduction finite differences (CondFD) [@TabaresVelasco2012], couples inside faces to the zone "
+        "air and passes the load to HVAC, plant and electric models whose air properties come from the outdoor "
+        "barometric pressure. The Earth thus enters in many places at once, often as literals (3600 s, 15°/h, 1 atm, "
+        "9.81 m/s²) or as conventions (the ground is at air temperature; the zone is at outdoor pressure) that are not "
+        "visible in the input. A lunar habitat therefore cannot be modelled correctly by editing the weather file alone.")
 
-
-def approaches(m):
-    """Three ways to simulate off-Earth buildings (level-2 subsection)."""
-    m.heading("Three routes to off-Earth building simulation", 2, label="routes")
+    m.heading("Routes to off-Earth thermal simulation", 2, label="routes")
     m.para(
-        "Previous work has taken one of two routes. The first keeps an Earth engine and replaces its weather: Mars "
-        "Climate Database or rover data are written into EPW files and run through EnergyPlus front-ends "
-        "[@Lagarde2021;Aydemir2026;Millour2018], or climate-model output is coupled with design tools [@Jadeja2016]. "
-        "This keeps the tools but not the physics: the engine still uses a 24-hour Earth sun, air at outdoor "
-        "pressure for convection and psychrometrics, and Earth sky and ground models, and the EPW range checks alter "
-        "values outside Earth's range. The second route builds a new model. Ross developed a semi-empirical habitat "
-        "heat balance [@Ross2022], and the separately developed ExoBEM tool re-implements the EnergyPlus heat-balance method in "
-        f"about {F['exobem_python_lines']:,} lines of Python with planetary physics throughout [@ZhangExoBEM]. A "
-        "re-implementation can be verified quickly, but it leaves out most of what makes EnergyPlus useful for design: "
-        "multi-zone HVAC and plant, controls, electric systems, a large and tested input and output ecosystem "
-        "(OpenStudio and its measures [@Guglielmetti2011]), and decades of comparative testing [@ASHRAE140].")
+        "Spacecraft and habitat thermal control is designed with lumped-parameter tools such as SINDA/FLUINT and "
+        "Thermal Desktop, which solve radiation exchange, conduction and fluid loops for worst-case hot and cold "
+        "cases, with component temperature limits as design drivers [@Gilmore2002]. They are the right tools for "
+        "radiators, coolant loops and electronics, but they are not organized around what building simulation "
+        "provides: mission-long, schedule-driven energy accounting of an occupied zone with internal gains, humidity, "
+        "controls, HVAC and electric systems in one model. The two are complementary; building simulation supplies the "
+        "loads and energy budgets that a thermal-control design then has to meet. Building-simulation work for Mars has "
+        "so far kept an Earth engine and replaced its weather [@Lagarde2021;Aydemir2026;Millour2018], coupled climate "
+        "output to design tools [@Jadeja2016], or built new models: a semi-empirical heat balance [@Ross2022] and "
+        "ExoBEM, a Python re-implementation of the EnergyPlus heat-balance method with planetary physics "
+        "[@ZhangExoBEM]. Table @tab:routes compares the routes. This paper takes a third: modifying the EnergyPlus "
+        "engine itself, so that a sealed habitat can use the engine's zone, control and output machinery. The "
+        "difficulty is less the planetary physics, whose models are established [@Hayne2017;Allison2000;Appelbaum1990], "
+        "than finding every place where a large engine silently assumes the Earth and changing those places without "
+        "disturbing terrestrial results.")
+    rows = [
+        ["Earth physics replaced", "No (Earth sun, air convection, sky and ground)", "Yes, in a new code", "Yes, inside EnergyPlus"],
+        ["EnergyPlus features", "All, driven by wrong physics", "Heat-balance method only (one zone, ideal loads)",
+         "Zones, schedules, EMS, ideal loads, PV, storage, outputs (Table @tab:coverage)"],
+        ["Verification", "None reported", "Earth: against EnergyPlus; planets: references", f"{sec('earth', 'indep', 'cross', 'habver', 'sens')}"],
+        ["Typical use", "Early climate studies", "Early design, parametric studies", "Detailed design in EnergyPlus workflows"],
+    ]
+    m.table(["Aspect", "Mars weather in stock EnergyPlus", "Re-implementation (ExoBEM)", "Engine modification (Thermonaut)"], rows,
+            "Routes to building energy simulation of planetary habitats.", col_widths_cm=[2.6, 4.0, 4.4, 5.0], font_size=7.5,
+            label="routes")
     m.para(
-        "The third route, taken here, modifies the engine itself. This is the hardest of the three because the "
-        "Earth assumptions must be located in a large code base before any physics can be changed, and every change "
-        "must leave terrestrial results untouched for the fork to remain trustworthy. It is also the route that "
-        "lets planetary habitats inherit everything else the engine can do.")
-
-
-def licensing_core(m):
-    """Licensing and naming of an EnergyPlus fork."""
-    m.heading("Licensing and naming", 2, label="licensecore")
-    m.para(
-        "EnergyPlus is distributed under a BSD-3-Clause license with an additional clause from the U.S. Department of "
-        "Energy: a modified version may be redistributed, but it may not be called \"EnergyPlus\", \"E+\" or a "
-        "confusingly similar name without DOE consent, and the developers may not be used to endorse it. The fork "
-        "is therefore named Thermonaut, keeps the original license and copyright notices, states in its README that "
-        "it is not EnergyPlus and is not endorsed by DOE or the National Laboratory of the Rockies (formerly NREL), "
-        "and is published as a separate repository with the upstream history intact [@ThermonautRepo].")
+        "EnergyPlus is distributed under a BSD-3-Clause licence with a clause from the U.S. Department of Energy: a "
+        "modified version may not be called EnergyPlus or imply endorsement. The fork is therefore named Thermonaut, "
+        "keeps the licence and notices, and states that it is neither EnergyPlus nor endorsed by its developers.")
 
 
 # =========================================================================== audit
 def audit(m):
-    """Audit method and findings (level-2 subsections)."""
-    m.heading("Audit method", 2, label="auditmethod")
+    m.heading("Audit protocol", 2, label="auditmethod")
     m.para(
-        f"The audit covered EnergyPlus v26.2.0, whose src/EnergyPlus directory holds about {KLOC:,.0f} thousand lines of "
-        "C++ in .cc and .hh files, plus the third-party libraries it compiles (window calculation engine, Kiva). It was "
-        "split into six areas that together cover every path from input to output: (1) time base, calendar, weather "
+        f"The audit covered EnergyPlus v{F['base_version']} (git tag v26.2.0), about {KLOC:,.0f} thousand lines of C++ in "
+        "src/EnergyPlus, in six areas that together cover every path from input to output: (1) time, calendar, weather "
         "input and sizing; (2) solar geometry, sky and ground radiation; (3) psychrometrics, pressure, gravity and "
-        "airflow; (4) the surface heat balance, conduction, convection and ground contact; (5) windows; and (6) HVAC, "
-        "plant, heat rejection and electric power. Each area was searched for the symbols through which Earth enters "
-        "the code (time constants, hour-angle and solar-constant literals, OutBaroPress, StdRhoAir, gravity "
-        "constants, outdoor-air temperature used as a ground or sky proxy, empirical correlation coefficients and "
-        "validity limits), and each hit was classified as bookkeeping (for example, an hour used as an array index) "
-        "or physics (an hour used to convert a rate to energy).")
+        "airflow; (4) surface heat balance, conduction, convection and ground contact; (5) windows; (6) HVAC, plant, "
+        "heat rejection and electric power. For each area a written brief listed the symbols through which the Earth "
+        "can enter: time constants (rSecsInHour, 3600, 86400), solar literals (15°/h, 1353 and 1367 W/m², Fourier "
+        "coefficients), pressure and density (OutBaroPress, StdBaroPress, StdRhoAir), gravity (9.81, 9.807), gas "
+        "constants and psychrometric ratios, outdoor-air temperature used as a sky or ground proxy, and empirical "
+        "correlation coefficients and validity limits. One large-language-model code agent per area searched the "
+        "source for these symbols, followed the call graph from each hit, separated bookkeeping (an hour used as an "
+        "index) from physics (an hour converting a rate to energy), and recorded file and line, the Earth value, the "
+        "consequence on the Moon and Mars, a proposed change and a priority: P0 if needed for a first single-zone "
+        "opaque habitat with ideal loads, P1 for windows, HVAC, plant, PV or outputs, P2 for rarely used modules better "
+        "refused than fixed.")
     m.para(
-        "Every finding records the file and line, the Earth value assumed, the consequence on the Moon and on Mars, "
-        "a proposed change and a priority: **P0** if it must change for a first single-zone, opaque habitat with "
-        "constructions, internal gains and ideal loads; **P1** if it is needed for windows, HVAC, plant, PV or "
-        "realistic outputs; and **P2** for rarely used modules that are better refused off-Earth than fixed. The "
-        "search was carried out with the help of large-language-model code agents working from a common written "
-        "brief, one agent per area; the findings acted on in this work were checked against the source during "
-        "implementation. The six reports are published with the code [@ThermonautRepo].")
+        "Every finding that led to a code change was checked against the source during implementation. Afterwards a "
+        "separate agent pass traced every row of the six reports to the current code: it re-located the cited file and "
+        "line in v26.2.0 and assigned a disposition from the actual Thermonaut changes (Table @tab:trace). "
+        f"Of the {AU['total']} rows ({N_FIND} prioritized findings and {AU_NOTES} notes without a priority), "
+        f"{AU['location']['ok']} citations were at the stated line, {AU['location']['moved']} nearby in the same file, "
+        f"{AU['location']['not_found']} not found and {AU['location']['n/a']} cited no line. The tracing also exposed "
+        "gaps between the documented and the implemented refusals (for example windows, SimpleCombined outside "
+        "convection and several air-cooled and outdoor-air components), which were closed in the version reported here "
+        "(M2e). The inventory with the disposition of each row is supplementary material S1. The audit is a search "
+        "under a stated protocol: an assumption that passes through none of the searched symbols, such as a "
+        "correlation calibrated to Earth conditions without a telltale constant, can be missed, so the count is a count "
+        "of findings, not a proof of completeness.")
 
     m.heading("What the audit found", 2, label="auditfound")
     m.para(
-        f"The audit recorded {N_FIND} findings: {N_P0} P0, {N_P1} P1 and {N_P2} P2 (Fig. @fig:audit). They are spread "
-        "over all six areas, but the P0 findings cluster in four: time and weather, solar and sky radiation, pressure "
-        "and air properties, and the exterior surface boundary. Windows have no P0 finding because no window code runs "
-        "in a model without fenestration, and HVAC has only four because the ideal-loads system already turns outdoor "
-        "air off when no outdoor-air specification is given. Table @tab:findings lists representative findings.")
+        f"The audit recorded {N_FIND} findings: {N_P0} P0, {N_P1} P1 and {N_P2} P2 (Fig. @fig:audit, Table "
+        "@tab:findings). The P0 findings cluster in time and weather, solar and sky radiation, pressure and air "
+        "properties, and the exterior boundary; windows have none because no window code runs without fenestration.")
     m.figure(FIG / "core_fig2_audit.png",
-             f"Earth-specific assumptions found in EnergyPlus v26.2.0 by area and priority ({N_FIND} findings). P0: "
-             "needed for a first single-zone habitat with ideal loads; P1: needed for windows, HVAC, plant and PV; P2: "
-             "rarely used modules that are refused off-Earth.", 16.0, label="audit")
+             f"Earth-specific assumptions found in EnergyPlus v26.2.0 by area and priority ({N_FIND} findings).", 16.0,
+             label="audit")
     rows = [
-        ["Time base", f"1 h = 3600 s is a compile-time constant; {AF['rSecsInHour_uses']} uses of rSecsInHour, "
-         f"{AF['rSecsInHour_physical']} of them physical; CTFs computed in Earth hours",
-         "A longer 'planetary hour' would rescale physics in some places but not others, and CTFs by up to ×29.5 on the Moon",
-         "Earth clock kept (hour = 3600 s); sun rate generalized"],
-        ["Weather input", "EPW range checks: dry-bulb ≥ 99.9 °C treated as missing; pressure ≤ 31 kPa replaced by the standard value",
-         "Lunar-day 120 °C and Martian 700 Pa silently altered", "Planetary weather file read directly; values set after the EPW read"],
-        ["Sun", "Declination and equation of time from Earth Fourier fits (two copies); hour angle 15°/h",
-         "Wrong sun on any other body", "Daily fit to Mars24 / lunar ephemeris; body hour-angle rate"],
-        ["Sky", "Perez diffuse model (1353 W/m², Earth air mass); part of the sky long-wave view sees air",
-         "No basis in vacuum or dusty CO2", "Isotropic diffuse; all sky long-wave to the sky"],
-        ["Ground", f"Ground long-wave temperature = outdoor air at {AF['ground_lw_equals_air_sites']} sites; monthly ground temperatures",
-         "No air on the Moon; regolith swings 290 K", "Regolith skin and deep temperatures from a 1-D column in periodic equilibrium"],
-        ["Pressure", f"One pressure, OutBaroPress, for zone, HVAC and outdoor air ({AF['OutBaroPress_uses']} uses in "
-         f"{AF['OutBaroPress_files']} files)", "Moon (0 Pa): zero air capacity, NaN humidity, one psychrometric routine never "
-         "returns; Mars: 0.7% of the cabin's thermal mass", "OutBaroPress carries the cabin pressure; new AmbientBaroPress"],
-        ["Convection", "Every exterior correlation assumes air at 1 atm and 1 g, with a non-zero floor; TARP inside",
-         f"Heat loss to air that does not exist; cabin convection overestimated about {AF['tarp_overestimate_moon']}× on the Moon",
-         "Zero (Moon) or CO2 mixed convection (Mars) outside; physical correlation inside"],
-        ["Conduction", "CondFD clamps nodes at −100 °C; walls start at 23 °C and warm up by repeating day 1",
-         "Lunar-night surfaces near −180 °C; regolith time constants of months to years", "−270 °C limit; steady start-up profile"],
-        ["PV and storage", "Cell temperature from NOCT or Sandia fits for Earth air and wind; storage heat to outdoor air",
-         "Modules in vacuum cool only by radiation", "One-diode PV with a vacuum or CO2 cell energy balance; batteries must sit in a zone"],
-        ["HVAC and plant", f"Heat rejection to outdoor air; {AF['OutBaroPress_hvac_uses']} OutBaroPress and "
-         f"{AF['StdRhoAir_uses']} StdRhoAir uses in HVAC and plant", "Cooling towers, air-cooled condensers and outdoor-air "
-         "systems meaningless in vacuum", "Refused with an error; space radiator planned"],
-        ["Windows", f"{AF['window_solvers']} thermal solvers, each with its own Earth gas and pressure constants",
-         "Interior film at outdoor pressure gives the floor value or NaN", "Not yet supported"],
+        ["Time base", f"1 h = 3600 s is constexpr; {AF['rSecsInHour_physical']} of {AF['rSecsInHour_uses']} uses of rSecsInHour are physical; CTFs in Earth hours",
+         "A longer hour would rescale part of the physics only", "Earth clock kept; sun rate generalized"],
+        ["Weather", "EPW checks treat ≥ 99.9 °C as missing and replace pressures ≤ 31 kPa", "Lunar 120 °C and Martian 700 Pa silently altered",
+         "Planetary weather file, values set after the EPW read"],
+        ["Sun", "Earth Fourier fits for declination and equation of time; 15°/h", "Wrong sun on any other body", "Daily fit to Mars24 or lunar ephemeris"],
+        ["Sky, ground", f"Part of the sky view sees air; ground long-wave = outdoor air ({AF['ground_lw_equals_air_sites']} sites)",
+         "No air on the Moon; regolith swings 290 K", "All sky view to the sky; regolith column"],
+        ["Pressure", f"One OutBaroPress for zone, HVAC and outdoors ({AF['OutBaroPress_uses']} uses in {AF['OutBaroPress_files']} files)",
+         "Moon: zero air capacity, NaN humidity", "OutBaroPress = cabin; new ambient pressure"],
+        ["Convection", "Air at 1 atm and 1 g with a non-zero floor; TARP inside",
+         f"Heat loss to absent air; cabin convection ~{AF['tarp_overestimate_moon']}× too high on the Moon", "Zero or CO2 mixed convection; cabin-gas correlation"],
+        ["Conduction", "CondFD clamps at −100 °C; walls start at 23 °C", "Lunar nights near −180 °C; regolith time constants of years", "−270 °C; steady start with correction"],
+        ["PV", "NOCT, Sandia and PVWatts cell temperatures assume Earth air", "Modules in vacuum cool only by radiation", "Radiative (and CO2) cell balance"],
     ]
-    m.table(["Area", "Earth assumption in the v26.2 code", "Effect off-Earth", "Thermonaut M2"], rows,
-            "Representative Earth assumptions found by the audit and their treatment in Thermonaut.",
-            col_widths_cm=[2.0, 5.4, 4.6, 4.0], font_size=7.5, label="findings")
+    m.table(["Area", "Earth assumption in v26.2", "Effect off-Earth", "Thermonaut"], rows,
+            "Representative audit findings and their treatment.", col_widths_cm=[1.8, 5.6, 4.4, 4.2], font_size=7.2,
+            label="findings")
+    rows = []
+    for a in F["audit"]["areas"]:
+        d = AU["by_area"].get(a["key"][:2], {})
+        rows.append([a["label"]] + [str(d.get(k, 0)) for k in DISP] + [str(sum(d.values()))])
+    tot = AU["by_disposition"]
+    rows.append(["All areas"] + [str(tot.get(k, 0)) for k in DISP] + [str(AU["total"])])
+    p0 = AU["by_priority"].get("P0", {})
+    rows.append(["of which P0"] + [str(p0.get(k, 0)) for k in DISP] + [str(sum(p0.values()))])
+    m.table(["Audit area", "Modified", "Refused", "Avoided", "Deferred", "Harmless", "Total"], rows,
+            "Disposition of every audit row in Thermonaut M2e: changed by a hook, refused by the input validator, made "
+            "correct by a design decision, deferred to a later milestone, or without effect off-Earth.",
+            col_widths_cm=[5.4, 1.8, 1.7, 1.7, 1.8, 1.8, 1.4], font_size=7.5, label="trace")
     m.para(
-        "Three findings shaped the design. First, time is the most pervasive assumption but also the least visible. "
-        f"About 1,110 rate-times-time-step products go through two variables that are set in only "
-        f"{AF['timestep_setters']} lines, which makes a variable hour length feasible, but {AF['rSecsInHour_units']} uses "
-        "of the same constant are genuine unit conversions (kWh, air changes per hour, flow per hour) that must stay "
-        "3600 s, and the CTF generator works internally in Earth hours. A longer hour is therefore a deep change. "
-        "Second, the engine has a single air pressure. About "
+        f"Three findings shaped the design. Time is the most pervasive assumption: {AF['rSecsInHour_units']} uses of the "
+        "hour constant are genuine unit conversions that must stay 3600 s while the physical uses would follow a "
+        "longer hour, and the CTF generator works in Earth hours. The engine has one air pressure: about "
         f"{AF['OutBaroPress_cabin']} of the {AF['OutBaroPress_uses']} uses of OutBaroPress describe air inside the "
-        f"pressure shell and about {AF['OutBaroPress_outdoor']} describe outdoor air; on the Moon the outdoor value is "
-        "zero. Third, the exterior boundary hides air in places other than convection: in the long-wave split, in the "
-        "ground temperature, in the PV cell temperature and in the moisture balance.")
+        f"pressure shell and about {AF['OutBaroPress_outdoor']} outdoor air, which is absent on the Moon. And the "
+        "exterior boundary hides air in the long-wave split, the ground temperature and the PV cell temperature, not "
+        "only in convection. Most findings are therefore resolved not one by one but by a few decisions (Table "
+        "@tab:trace): keeping the Earth clock avoids the time findings, letting OutBaroPress carry the cabin pressure "
+        "makes the zone and HVAC uses correct without edits, and refusing outdoor-air objects removes whole modules "
+        "from the planetary domain. The deferred rows are mostly windows and the Mars sol clock (Section @sec:roadmap).")
 
 
-# =========================================================================== design
-def factor_table_core(m):
-    """The Earth / Moon / Mars factors and how Thermonaut treats each one (shared list with ExoBEM)."""
-    from factors import FACTORS
-    rows, cat = [], None
-    for c, fac, earth, moon, mars, _exo, core in FACTORS:
-        if c != cat:
-            rows.append([f"**{c}**", "", "", "", ""])
-            cat = c
-        rows.append([fac, earth, moon, mars, core])
-    m.table(["Factor", "Earth", "Moon", "Mars", "Treatment in Thermonaut"], rows,
-            "Factors that distinguish a lunar or Martian habitat from an Earth building, and how Thermonaut treats each "
-            "one. modelled: physics implemented and verified; input: a parameter with a documented default; enforced or "
-            "refused: contradicting input stops the run; neglected: left out, with the reason. The same list, with the "
-            "ExoBEM column, is in the ExoBEM paper and in the documentation.",
-            col_widths_cm=[2.9, 2.6, 3.4, 3.2, 3.9], font_size=7.0, label="factors")
-
-
+# =========================================================================== planetary mode
 def design(m):
-    """Planetary mode: rules, factors, coordination, input, PWF, time and sun, environment, pressure, boundaries,
-    start-up, PV, validator (level-2)."""
-    m.heading("Design rules", 2, label="rules")
+    m.heading("Design rules and supported domain", 2, label="rules")
     m.para("Three rules guided every change (Fig. @fig:hooks):")
     m.bullets([
-        "**Earth stays bit-for-bit.** Planetary mode is active only when the input contains a Site:PlanetaryBody object "
-        "with Body = Moon or Mars. Every change is either behind that switch or replaces a literal by a variable whose "
-        "Earth value is the same literal, so that IEEE floating-point results on Earth do not change.",
-        "**Reuse, do not rewrite.** Planetary values are injected where EnergyPlus already reads its environment "
-        "(weather arrays, sun direction, ground temperature, exterior and interior coefficients, PV cell temperature). "
-        "The heat balance, conduction solvers, shading, view factors, ideal loads, electric load centre and reporting "
-        "run unchanged.",
-        "**Refuse what cannot be right.** Objects that need outdoor air or Earth weather stop the run with an error off-Earth "
-        "instead of producing a plausible-looking wrong answer.",
+        "**Earth stays identical.** Planetary mode is active only with a Site:PlanetaryBody object for the Moon or "
+        "Mars; every change is behind that switch or replaces a literal by a variable with the same Earth value.",
+        "**Reuse, do not rewrite.** Planetary values enter where EnergyPlus already reads its environment; the heat "
+        "balance, conduction solvers, shading, view factors, ideal loads, electric load centre and reporting run unchanged.",
+        "**Refuse what cannot be right.** Objects that need outdoor air or Earth weather stop the run with an error "
+        "instead of producing plausible-looking wrong numbers.",
     ])
     m.para(
-        f"The result is small. The current version (M2d) adds {DIFF['insertions']:,} lines and changes {DIFF['deletions']} in "
-        f"{DIFF['files']} files: a new PlanetaryBody module ({DIFF['new_module_lines']:,} lines), the input-object "
-        f"definition ({DIFF['idd_lines']} lines) and about {DIFF['hook_lines_existing_files']} lines of hooks in "
-        f"{DIFF['existing_files_touched']} existing files, which is {ENGINE_SHARE:.1f}% of the engine. M1 introduced the "
-        "planetary environment and boundaries; M2 added planetary weather files with no EPW, PV in vacuum, batteries, "
-        "the regolith periodic equilibrium and corrections from an independent review of the equations; M2c "
-        "recalibrated the Martian sky long-wave to the 2018 dust storm; and M2d replaced the start-up correction of "
-        "regolith-covered walls (Section @sec:startup).")
+        f"Version M2e adds {DIFF['insertions']:,} lines of C++ and input definition and changes {DIFF['deletions']} in "
+        f"{DIFF['files']} files: a PlanetaryBody module ({DIFF['new_module_lines']:,} lines), the input object "
+        f"({DIFF['idd_lines']} lines) and {DIFF['hook_lines_existing_files']} lines of hooks in "
+        f"{DIFF['existing_files_touched']} existing files ({ENGINE_SHARE:.1f}% of the engine). Table @tab:coverage "
+        "states what the planetary mode supports: envelope, load and power studies of sealed, windowless habitats with "
+        "prescribed set-points (version history in supplementary material S6).")
     m.figure(FIG / "core_fig1_hooks.png",
-             "Where Thermonaut enters the EnergyPlus engine. Grey: unchanged EnergyPlus stages and the source files that "
-             "carry the hooks; orange: what the hook does off-Earth. The new PlanetaryBody module supplies ephemerides, "
-             "the environment (from a planetary weather file or its own generator), regolith temperatures, gas "
-             "properties and the PV cell temperature.", 16.0, label="hooks")
-
-    m.heading("What differs off-Earth", 2, label="factorsec")
-    m.para(
-        "Before changing code, the physical differences between an Earth building and a sealed habitat on the Moon or "
-        "Mars were listed in one place (Table @tab:factors). The list is shared with ExoBEM and its documentation so the "
-        "tools cannot drift apart. Most items are handled in the engine; a few are inputs, some are enforced by refusing "
-        "objects, and a few are neglected with a stated reason. The most important enforced item is outdoor air: a "
-        "habitat is a sealed pressure vessel, so infiltration, ventilation, economizers and outdoor-air systems are "
-        "zero by construction and any such object stops the run (Section @sec:refuse). Gas lost through leakage and "
-        "airlock cycles is real, but its make-up energy is below 1 W for the cases here; ExoBEM reports it.")
-    factor_table_core(m)
+             "Where Thermonaut enters the EnergyPlus engine. Grey: unchanged stages and the files that carry the hooks; "
+             "orange: what each hook does off-Earth. The PlanetaryBody module supplies ephemerides, the environment, "
+             "regolith temperatures, gas properties and the PV cell temperature.", 16.0, label="hooks")
+    rows = [
+        ["Time loop, schedules, EMS, outputs", "Inherited unchanged (Earth clock)", "Sol clock for Mars planned"],
+        ["Weather", "Planetary weather file or internal generator", "Generalized"],
+        ["Sun position and shading", "Body's hour-angle rate, daily ephemeris fit, disk visibility", "Generalized"],
+        ["Exterior surface balance", "Vacuum or thin-CO2 convection; sky and regolith long-wave; regolith ground", "Generalized"],
+        ["Conduction (CTF, CondFD)", "Unchanged solvers; −270 °C limit; regolith start-up", "Generalized"],
+        ["Interior convection, zone air", "Cabin gas at cabin pressure and body gravity", "Generalized; moist-air psychrometrics"],
+        ["Ideal loads with humidistat", "Inherited unchanged", "Supported (Section @sec:habver)"],
+        ["PV, batteries", "One-diode PV with planetary cell temperature; Li-ion in a zone", "Generalized"],
+        ["Water-cooled chillers, plant loops", "Inherited unchanged; no heat sink available", "Space radiator planned"],
+        ["Windows; infiltration, ventilation, outdoor-air and air-cooled equipment; design days and sizing; Kiva; "
+         "AirflowNetwork", "Refused with a severe error", "Windows and planetary sizing planned"],
+    ]
+    m.table(["EnergyPlus element", "Thermonaut planetary mode", "Status"], rows,
+            "Feature coverage of the planetary mode. On Earth every element is that of EnergyPlus v26.2.",
+            col_widths_cm=[5.4, 6.6, 4.0], font_size=7.5, label="coverage")
 
     m.heading("How a planetary run is coordinated", 2, label="coord")
     m.para(
-        "Thermonaut does not add a second simulation loop. The planetary module is called from the same places where "
-        "EnergyPlus reads its environment, in this order:")
-    m.bullets([
-        "**Input.** When the input is read, Site:PlanetaryBody sets the body, the gravity and the cabin pressure, which "
-        "from then on is stored in OutBaroPress together with the standard air density at that pressure. If a planetary "
-        "weather file is named, it is read and checked, and a calendar-only EPW file is written to the output folder so "
-        "that the run-period and day bookkeeping of the weather manager works unchanged.",
-        "**Validation.** After all objects are read, a validator stops the run if any object needs outdoor air or Earth "
-        "weather (Section @sec:refuse).",
-        "**Environment.** Before the first day, the environment for the whole run period is either interpolated from the "
-        "planetary weather file to the zone time step or produced by the internal generator. The regolith column is brought "
-        "to periodic equilibrium and the deep-regolith temperature is stored for ground-contact surfaces.",
-        "**Warm-up.** CondFD walls start from their steady conduction profile (Section @sec:startup); EnergyPlus then "
-        "repeats the first day as usual, and the profile is corrected with the inside-face temperature reached.",
-        "**Each day.** The weather manager reads the calendar day; the planetary module overwrites every weather value of "
-        "that day and fits the declination and equation of time to the ephemeris. Shading is recomputed daily.",
-        "**Each zone time step.** The engine computes the sun direction with the body's hour-angle rate, solves the "
-        "outside-face balance with the planetary convection, sky and ground terms, conducts through the walls with CTF or "
-        "CondFD, solves the inside faces with the cabin convection correlation, and updates the zone air and humidity "
-        "balance at cabin pressure. The ideal-loads system meets the thermostat and humidistat; the electric load centre "
-        "runs PV with the planetary cell temperature and the batteries; and seven planetary output variables are reported.",
-    ])
-    m.para(
-        "Table @tab:eplus summarizes what is the same and what differs from EnergyPlus. The structure of the engine is "
-        "untouched; what changes are the values that enter it at each of these points.")
-    rows = [
-        ["Simulation loop", "Run period, day, hour, zone and HVAC time steps", "Same; Earth clock (3600 s hours)", "same"],
-        ["Weather input", "EPW, 8,760 hourly records, Earth range checks", "Planetary weather file (no EPW needed) or internal generator; values set after the read", "different"],
-        ["Sun position", "Earth Fourier fits; 15°/h", "Daily fit to Mars24 or the lunar subsolar point; body's hour-angle rate", "adapted"],
-        ["Sky and ground", "Perez diffuse; sky/air long-wave split; ground at air temperature", "Isotropic diffuse; all sky view to the sky; ground from the regolith column", "adapted"],
-        ["Exterior convection", "TARP, DOE-2 and others with a non-zero floor", "Zero in vacuum; mixed convection in thin CO2 at body gravity", "different"],
-        ["Conduction", "CTF or CondFD; walls start at 23 °C", "Same solvers; CondFD to −270 °C; steady k(T) start-up profile", "adapted"],
-        ["Interior convection", "TARP (air, 1 atm, 1 g)", "Same physical correlation for the cabin gas at cabin pressure and body gravity", "adapted"],
-        ["Zone air and moisture", "Air at outdoor pressure", "Same balances with OutBaroPress = cabin pressure", "same"],
-        ["Outdoor air", "Infiltration, ventilation, OA systems", "Refused: sealed cabin", "different"],
-        ["Loads and HVAC", "Ideal loads, HVAC and plant", "Ideal loads with humidistat; air- and water-cooled heat rejection refused", "adapted"],
-        ["Electric power", "PV (simple, Sandia, one-diode, PVWatts), storage, generators", "Simple and one-diode PV with planetary cell temperature; storage (Li-ion in a zone)", "adapted"],
-        ["Outputs", "ESO, SQLite, tabular reports", "Same, plus seven planetary output variables", "same"],
-    ]
-    m.table(["Element", "EnergyPlus v26.2", "Thermonaut planetary mode", "Relation"], rows,
-            "Thermonaut compared with EnergyPlus, element by element. On Earth every element is identical to v26.2.",
-            col_widths_cm=[2.8, 5.0, 6.4, 1.8], font_size=7.5, label="eplus")
+        "Thermonaut adds no second simulation loop. At input, Site:PlanetaryBody sets the body, gravity and cabin "
+        "pressure, which is stored in OutBaroPress; a planetary weather file, if named, is read and checked, and a "
+        "calendar-only EPW keeps the weather manager's day bookkeeping unchanged. A validator then refuses unsupported "
+        "objects (Section @sec:refuse). Before the first day the environment of the whole run is interpolated from the "
+        "file or generated, the regolith column is brought to periodic equilibrium and CondFD walls start from a "
+        "steady profile (Section @sec:startup). Each day the planetary module overwrites every weather value and fits "
+        "declination and equation of time to the ephemeris, and shading is recomputed. Each time step then runs the "
+        "stock sequence of outside faces, conduction, inside faces, zone air, ideal loads and electric load centre "
+        "with the planetary coefficients of Fig. @fig:hooks.")
 
-    m.heading("Input", 2, label="input")
+    m.heading("Input and planetary weather files", 2, label="pwf")
     m.para(
-        "A single new object, Site:PlanetaryBody, selects the body (Earth, Moon or Mars), the clock, a reference year "
-        "and the habitat parameters: gravity (by default the body's surface value: 1.625 m/s² on the Moon, 3.721 m/s² "
-        "on Mars), cabin pressure and oxygen fraction (for example 70.3 kPa and 26.5%, or the 56.5 kPa and 34% "
-        "exploration atmosphere [@EAWG2010]), cabin air velocity (0.15 m/s) and a convection length scale. Optional "
-        "fields set the horizon elevation, the regolith thermal inertia, albedo, emissivity and spin-up cycles, the "
-        "deep-regolith depth, and for Mars the mean surface pressure, the dust optical-depth model (seasonal climatology "
-        "or constant, with an optional global storm defined by start and end solar longitude and peak optical depth) "
-        "and the wind. The last field names a planetary weather file. Everything else in the input file is standard "
-        "EnergyPlus input (Appendix A).")
-
-    m.heading("Planetary weather files", 2, label="pwf")
-    m.para(
-        "EnergyPlus weather files cannot carry a planetary environment: they hold 8,760 Earth hours, their range checks "
-        "alter lunar and Martian values, and they have no fields for a regolith temperature, a sky with no air, or a "
-        "dust optical depth. Thermonaut therefore reads the Planetary Weather Format (PWF) defined with ExoBEM "
-        f"{exo_ref()}: a CSV file with a header of key–value lines (body, site, start time, time step, solar-day length, "
-        "gravity, atmosphere type, clock) and one record per time step. Each record gives the solar zenith and azimuth, "
-        "the fraction of the solar disk above the horizon, direct normal, diffuse and global irradiance, the near-surface "
-        "air temperature (empty in vacuum), the effective sky temperature, the regolith surface and deep temperatures, "
-        "the ground albedo, the ambient pressure and the wind, with optional downwelling long-wave radiation, solar "
-        "longitude and dust optical depth. Solar quantities refer to the middle of each interval and state quantities "
-        "to its end.")
-    m.para(
-        "The engine checks that the file's body matches the input, that it covers the run period, and that every value "
-        "is physical (no negative irradiance, no temperature below 0 K); it does not apply Earth ranges. Values are "
-        "interpolated linearly to the zone time step. The solar position is still computed by the engine, so that "
-        "shading and incidence angles use the same geometry as on Earth, and the file's irradiance is used for the "
-        "magnitudes. Files are written by ExoBEM from its environment models and can be converted from other sources, "
-        "such as the Mars Climate Database [@Millour2018] or rover data. With a PWF file the two tools see an identical "
-        "environment, which separates environment differences from heat-balance differences in the verification "
-        "(Section @sec:cross).")
+        "Site:PlanetaryBody selects the body, a reference year and habitat parameters: gravity, cabin pressure and "
+        "oxygen mole fraction, cabin air velocity and a convection length; optional fields set a uniform horizon "
+        "elevation, regolith properties and, for Mars, mean pressure, dust model and wind. The last field names a file "
+        "in the Planetary Weather Format (PWF 1.0) [@ZhangExoBEM], whose versioned specification defines every column, "
+        "unit and convention (supplementary material S8): a key–value header (body, site, start time in UTC, record "
+        "length, solar-day length, gravity, atmosphere) and one record per interval with solar zenith and azimuth, "
+        "visible fraction of the solar disk, direct normal, diffuse and global irradiance, air temperature (nan in "
+        "vacuum), effective sky, regolith surface and deep temperatures, albedo, ambient pressure and wind. Solar "
+        "quantities refer to the middle of each interval, state quantities to its end. The engine rejects a file for "
+        "another body, with a missing column, unequal spacing or incomplete coverage of the run period, or with any "
+        "non-physical value (negative irradiance, temperatures below 2.7 K, albedo outside 0–1, negative pressure or "
+        "wind; only the air temperature may be nan), reporting the record number; Earth range checks are not applied. "
+        "Values are interpolated linearly to the time step. The engine does not use the zenith and azimuth columns: it "
+        "computes the solar position itself, so that shading and incidence follow its own geometry, and takes only the "
+        "irradiance magnitudes from the file.")
 
     m.heading("Time base and sun position", 2, label="sun")
     m.para(
-        "The audit showed that a planetary hour would touch about a hundred physical uses of the hour length and the "
-        "CTF generator. Thermonaut therefore keeps the Earth clock: an hour is 3600 s and a day starts at 00:00 UTC, so "
-        "that crew schedules, which follow Earth or mission time, are written as on Earth. What changes is the rate at which "
-        "the Sun moves. EnergyPlus computes the hour angle in several places, all with the same expression; Thermonaut "
-        "replaces the literal 15 by a variable:")
+        "A planetary hour would touch the physical uses of the hour constant and the CTF generator. Thermonaut therefore "
+        "keeps the Earth clock (3600 s hours, days from 00:00 UTC), so crew schedules are written as on Earth, and changes "
+        "the rate at which the Sun moves. The hour angle becomes")
     m.equation(r"H=r\left[12-\left(t+E\right)\right]+\left(\lambda_{TZ}-\lambda\right),\qquad r=\frac{360^{\circ}}{P_{d}/3600\,\mathrm{s}}",
                label="hourangle")
     m.para(
-        "where t is the clock hour, E the equation of time in hours, λ_{TZ} and λ the time-zone meridian and the "
-        "longitude, and P_{d} the length of the solar day: 86,400 s on Earth (r = 15°/h, the original literal), the "
-        "synodic month of 29.53 days on the Moon (r = 0.508°/h) and the sol of 88,775 s on Mars (r = 14.6°/h). For each "
-        "simulated day the declination and E are fitted to the planetary ephemeris at 12:00 UTC: the declination is "
-        "taken from Mars24 [@Allison2000] or from the selenographic subsolar point [@Meeus1998], and E is chosen so that "
-        "Eq. (@eq:hourangle) reproduces the ephemeris hour angle H_{⊙} at mid-day,")
+        "where t is the clock hour, E the equation of time in hours, λ_{TZ} and λ the time-zone meridian and longitude, "
+        "and P_{d} the solar day: 86,400 s on Earth (r = 15°/h), the synodic month on the Moon (0.508°/h) and the sol on "
+        "Mars (14.6°/h). Each day the declination is taken from Mars24 [@Allison2000] or the selenographic subsolar "
+        "point [@Meeus1998] at 12:00 UTC, and E is chosen so that Eq. (@eq:hourangle) reproduces the ephemeris hour "
+        "angle H_{⊙} at mid-day,")
     m.equation(r"E_{d}=\frac{H_{\odot}\left(12\,\mathrm{h}\right)+\lambda_{TZ}-\lambda}{r}", label="eotfit")
     m.para(
-        "Because the hour angle is linear in time over a day on both bodies, Eq. (@eq:hourangle) then follows the "
-        "ephemeris through the day (Section @sec:cross). All downstream sun and shading routines, including the "
-        "polygon-clipping shadow calculation, are reused. Two settings change off-Earth: the shading calculation is "
-        "updated every day, because the declination fitted for one day does not hold for the next, and the hour "
-        "angle is wrapped to ±180° before the sunrise test, because on the Moon it spans more than one revolution in a "
-        "lunation. Near the horizon the visible fraction of the solar disk is the area fraction of a disk cut by a "
-        "line, f = [acos(−x) + x√(1−x²)]/π with x the disk centre's height above the horizon in solar radii; on the "
-        "Moon the Sun takes about an hour to rise.")
+        "Because the hour angle is linear in time over a day on both bodies, the fit holds through the day. The hour "
+        "angle is wrapped to ±180° before the sunrise test, and the visible fraction of the solar disk above the "
+        "horizon is its area fraction.")
 
     m.heading("Planetary environment", 2, label="env")
     m.para(
-        "Without a weather file, the environment comes from a generator that implements in C++ the same environment "
-        f"models {exo_ref()} and is run for the whole run period before the simulation starts. On the Moon there is no "
-        "diffuse light, the sky is at 2.725 K and the ground is a 1-D regolith column following Hayne et al. "
-        "[@Hayne2017]. On Mars the total irradiance comes from a delta-Eddington two-stream solution with a seasonal dust "
-        "optical depth and an optional global storm [@Joseph1976;Appelbaum1990]; the beam is the Beer-law attenuation "
-        "of the solar disk, exp(−τm), and the rest of the total, including the forward-scattered peak, is diffuse. The "
-        "pressure follows the seasonal CO2 cycle with its minimum near Ls 157° and its maximum near Ls 269°, the sky "
-        "emits as an effective dusty-CO2 layer, and the near-surface air follows the ground with a lag. Seven new output "
-        "variables report the planetary environment (ground surface and deep temperature, ambient pressure, downwelling "
-        "long-wave radiation, Sun distance, solar longitude and dust optical depth). Values are set after the weather "
-        "manager has read its day, so none of the EPW range checks found by the audit can alter them.")
-    m.para(
-        "The regolith column needs a starting state. A metre of regolith has a thermal time constant of years on the "
-        "Moon, so spinning it up over a few lunations from a guess leaves the deep temperature wherever the guess put "
-        "it. Both tools therefore bring the column to periodic equilibrium: they run a full year of forcing, take the "
-        "period-mean temperature at the depth below which the daily wave has died out (0.15 m on the Moon, 0.25 m on "
-        "Mars), rebuild the deeper profile so that it carries the geothermal flux with the local conductivity, and "
-        "repeat until the deep temperature changes by less than 0.02 K. The result does not depend on the start date "
-        "or the initial guess; at the lunar equator it gives −14.9 °C at 3 m.")
+        "Without a weather file the environment comes from an internal generator. On the Moon there is no diffuse "
+        "light, the sky is at 2.725 K and the ground is a one-dimensional regolith column [@Hayne2017]. On Mars a "
+        "delta-Eddington two-stream solution with a seasonal dust optical depth and an optional global storm gives the "
+        "irradiance [@Joseph1976;Appelbaum1990]; pressure follows the seasonal CO2 cycle; the sky emits as a dusty-CO2 "
+        "layer calibrated to MEDA infrared data and the 2018 dust storm [@Martinez2023;ViudezMoreiras2019]; and the "
+        "near-surface air follows the ground with a lag. Regolith columns are brought to periodic equilibrium over a "
+        "year of forcing. Lunar Earthshine (below 0.2 W/m²) and Earth's thermal emission seen from the Moon (about "
+        "0.07 W/m²) are neglected; both are below 0.1% of the long-wave exchange of a sunlit surface. The verified "
+        "domain is equatorial and mid-latitude sites with a uniform horizon: the ground view factor is (1 − cos β)/2, "
+        "and terrain slopes, polar illumination, permanently shadowed regions and terrain eclipses are outside it.")
 
     m.heading("Cabin and ambient pressure", 2, label="pressure")
     m.para(
-        "The single-pressure finding admits two fixes: add a cabin pressure and change the roughly 350 zone and HVAC "
-        "uses of OutBaroPress, or let OutBaroPress carry the cabin pressure and change the outdoor uses. Thermonaut "
-        "takes the second option. Off-Earth, OutBaroPress holds the cabin pressure, so the zone air balance, "
-        "psychrometrics, ideal loads and every HVAC component see the air they actually contain, without edits; the "
-        "standard pressure and density used for volume-to-mass conversions follow the cabin as well. A new variable, "
-        "AmbientBaroPress, holds the real outdoor pressure (zero on the Moon, 600–800 Pa on Mars) and is used by the "
-        "exterior convection model and the outputs. Almost all outdoor users of the old variable are outdoor-air "
-        "systems, infiltration and heat rejection to air, and these are refused off-Earth (Section @sec:refuse), so the "
-        "option leaves no silent outdoor use of the cabin pressure in a valid input. The zone moisture balance runs with "
-        "moist-air psychrometrics at cabin pressure; at 26.5–34% oxygen the specific heat and gas constant differ from "
-        f"air by less than {AF['cabin_psychrometric_error_pct']}%. The cabin-gas properties used for convection are "
-        "mixed from nitrogen and oxygen by mass fraction.")
+        "Of two ways to split the single pressure, adding a cabin pressure and editing the roughly 350 zone and HVAC "
+        "uses, or letting OutBaroPress carry the cabin pressure and editing the outdoor uses, Thermonaut takes the "
+        "second: zone balances, psychrometrics, ideal loads and HVAC components see the gas they contain without "
+        "edits, and a new ambient pressure (zero on the Moon, 600–800 Pa on Mars) serves the exterior model and "
+        "outputs. The cabin is a nitrogen–oxygen mixture defined by its oxygen mole fraction. Its convection properties "
+        "are those of the mixture, but the zone moisture balance keeps EnergyPlus's moist-air psychrometrics at cabin "
+        "pressure. At 26.5% O2 the mixture's gas constant is 0.4% below that of air and its specific heat 0.1% below; "
+        "at 34% O2 they are 1.4% and 1.0% below, so the volumetric heat capacity of the zone gas is 0.4% too low and the "
+        "humidity ratio at a given relative humidity 1.4% too high (molar-mass ratio 0.613 instead of 0.622). Both "
+        "errors are small next to the input uncertainties of Section @sec:sens.")
 
-    m.heading("Exterior boundary", 2, label="extbc")
+    m.heading("Exterior and interior boundaries", 2, label="extbc")
     m.para(
-        "Off-Earth, the exterior convection coefficient is replaced. It is zero in vacuum, and the EnergyPlus lower "
-        "limit on the coefficient is bypassed. On Mars, a physical mixed-convection correlation is used for CO2 at the "
-        "ambient pressure and the body's gravity, combining Churchill–Chu or horizontal-plate natural convection with "
-        "flat-plate forced convection [@Churchill1975;Incropera2007]:")
+        "Outside, the convection coefficient is zero in vacuum, bypassing EnergyPlus's lower limit. On Mars, natural "
+        "convection (Churchill–Chu for vertical faces, McAdams/Lloyd–Moran for horizontal ones, blended by tilt) and "
+        "laminar or turbulent flat-plate forced convection are computed for CO2 at the ambient pressure and the body's "
+        "gravity and combined as [@Churchill1975;Incropera2007]")
     m.equation(r"h=\left(h_{n}^{3}+h_{f}^{3}\right)^{1/3},\qquad h_{n}=\frac{k}{L}Nu\left(Ra\right),\quad Ra=\frac{g\beta\Delta T L^{3}\rho^{2}c_{p}}{\mu k}",
                label="mixed")
     m.para(
-        "with Sutherland-type gas properties. The sky/air split of the long-wave view, which on Earth sends part of the "
-        "sky view to the air temperature, is set to send all of it to the sky; the ground view, which on Earth sees "
-        "the outdoor air temperature, sees the regolith skin temperature; and surfaces in contact with the ground use "
-        "the deep-regolith temperature. The Perez anisotropic sky model is replaced by an isotropic sky, since its "
-        "coefficients were fitted to Earth air masses [@Perez1990]. Outdoor moisture exchange is switched off, and the "
-        "sanity checks that stop a run when an outdoor or surface temperature falls below −100 °C are skipped.")
-
-    m.heading("Interior convection", 2, label="intconv")
-    m.para(
-        "Inside, the default TARP correlation describes air at one atmosphere and 1 g [@Walton1983]. Natural "
-        "convection scales roughly as (gρ²)^{1/3}, so at lunar gravity and 70.3 kPa TARP overestimates it by about "
-        f"{AF['tarp_overestimate_moon']} times. Off-Earth, Thermonaut applies the same mixed-convection correlation to the cabin gas "
-        "(nitrogen and oxygen at the cabin pressure and oxygen fraction) with the body's gravity and the cabin air "
-        "velocity as the forced component. The override is placed before the EnergyPlus Energy Management System "
-        "override, so users can still set coefficients from EMS.")
+        "with the vertical length from the input, A/P for horizontal faces and √A for forced flow. Over the Mars "
+        f"verification run Ra on the top facet spans {MC['Ra_range'][0]:.0e} to {MC['Ra_range'][1]:.0e}, Re "
+        f"{MC['Re_range'][0]:.1e} to {MC['Re_range'][1]:.1e} (laminar) and Pr {MC['Pr_range'][0]:.2f}–{MC['Pr_range'][1]:.2f}. "
+        f"The mean free path of CO2 is {MC['mean_free_path_um'][0]:.0f}–{MC['mean_free_path_um'][1]:.0f} µm, a Knudsen "
+        f"number below {MC['Knudsen_max']:.0e}, so continuum correlations apply without slip correction. The lower "
+        "Rayleigh numbers fall below the fitted range of the horizontal-plate correlation, but there forced convection "
+        "dominates the blend. All of the sky view goes to the sky, the ground view sees the regolith skin temperature, "
+        "ground contact uses the deep-regolith temperature, an isotropic sky replaces the Perez model [@Perez1990] and "
+        "outdoor moisture exchange is off. Inside, the TARP correlation for air at 1 atm and 1 g [@Walton1983] "
+        f"overestimates natural convection about {AF['tarp_overestimate_moon']} times at lunar gravity; the same mixed "
+        "model is applied to the cabin gas with the body's gravity and the cabin air velocity. Surfaces are grey, with "
+        "one thermal emissivity and the solar absorptance of the input.")
 
     m.heading("Conduction and the start-up of regolith covers", 2, label="startup")
     m.para(
-        "CTF and CondFD run unchanged on the Earth clock. Two things change. The CondFD lower node-temperature limit "
-        "of −100 °C becomes −270 °C off-Earth. More importantly, the start-up procedure had to be reconsidered. "
-        "EnergyPlus starts every wall at 23 °C and repeats the first day until zone temperatures and loads converge. "
-        "That works for walls with time constants of hours to days but not for a metre of regolith, whose time "
-        "constant is months on Mars and years on the Moon: the warm-up converges on the zone while the regolith is "
-        "still far from its periodic state. Off-Earth, Thermonaut starts each CondFD construction from its steady "
-        "conduction profile between the period-mean outer-face temperature T̄_{o} and the initial inside temperature "
-        "T_{in},")
+        "CTF and CondFD run unchanged on the Earth clock; the CondFD node limit of −100 °C becomes −270 °C. The start-up "
+        "had to be reconsidered. EnergyPlus starts every wall at 23 °C and repeats the first day until the zone "
+        "converges, which suits walls with time constants of hours, not a metre of regolith, whose time constant is "
+        "months on Mars and years on the Moon. Off-Earth, each CondFD construction starts from its steady conduction "
+        "profile between the period-mean outer-face temperature T̄_{o} and the initial inside temperature T_{in},")
     m.equation(r"T_{i}=\bar{T}_{o}+\left(T_{in}-\bar{T}_{o}\right)\frac{R_{i}}{R_{tot}},\qquad R_{i}=\sum_{j<i}\frac{\Delta x_{j}}{k_{j}\left(T_{j}\right)}",
                label="steady")
     m.para(
-        "where the resistances follow each layer's temperature-dependent conductivity and are iterated six times. "
-        "T̄_{o} solves the mean radiative–convective balance of the outer face under the planetary environment "
-        "(absorbed solar radiation, sky and ground long-wave exchange with T⁴-mean temperatures, and convection on "
-        "Mars). At the end of warm-up the inside faces have reached their real temperature, so the profile is "
-        "recomputed with that temperature. The difference Δ_{i} between the two profiles is not added in full: the "
-        "nodes near the inside face have already moved toward the real inside temperature during warm-up, and adding "
-        "Δ_{i} to them as well overshoots (Section @sec:startupres). Node i therefore receives Δ_{i}(1 − g_{i}), where "
-        "g_{i} is the fraction of a unit step of the inside-face temperature that has reached node i after the warm-up "
-        "period t_{w}. It is obtained by integrating the construction's own node network implicitly over t_{w},")
+        "iterated six times for the temperature-dependent conductivity (the sixth iteration changes the profile by "
+        f"{RB['kT']['max_change_per_iteration_K'][5]:.0e} K). T̄_{{o}} solves the mean radiative–convective balance of the "
+        "outer face. After warm-up the inside faces sit at their real temperature, and the profile is recomputed with "
+        "it. The difference Δ_{i} between the two profiles must not be added in full, because the nodes near the inside "
+        "face have already moved during warm-up (Fig. @fig:startupfig). Node i receives Δ_{i}(1 − g_{i}), where g_{i} is "
+        "the response of the construction's own node network to a unit step of the inside-face temperature over the "
+        "warm-up period t_{w},")
     m.equation(r"C_{i}\frac{dg_{i}}{dt}=G_{i-1}\left(g_{i-1}-g_{i}\right)+G_{i}\left(g_{i+1}-g_{i}\right),\qquad g_{N}=1,\;g_{1}=0,\;g_{i}\left(0\right)=0",
                label="warmup")
     m.para(
-        "with the conductances G = k/Δx and capacities C = ρc_{p}Δx exactly as CondFD discretizes the construction, "
-        "the outer node held fixed and hourly steps. Because CondFD gives no-mass layers a near-zero capacity, an MLI "
-        "blanket blocks the step as it should: the regolith behind it receives the full correction and the panel inside "
-        "it none. A simpler weighting by diffusion depth, erf(ξ/2√t_{w}), was tried first and rejected because it "
-        "treats a no-mass MLI layer as transparent. The correction is zero at the outer face and does not disturb the "
-        "daily cycle that warm-up has established there. Thin, light envelopes such as an MLI shell need none of this "
-        "and are best run with CTF.")
+        "with conductances G = k/Δx and capacities C = ρc_{p}Δx as CondFD discretizes the construction (no-mass layers "
+        "enter as resistances), integrated implicitly in hourly steps with the outer node fixed. Because no-mass layers "
+        "have no capacity, an MLI blanket blocks the step as it should: the panel inside it receives no correction and "
+        "the regolith behind it nearly all. Like warm-up itself, the method assumes that the deep layers respond "
+        "linearly over t_{w}; it has not been tested with phase-change or moisture-dependent materials. Thin, light "
+        "envelopes need none of this and are best run with CTF.")
+    m.figure(FIG / "core_fig6_startup.png",
+             "Start-up of the lunar regolith-module shell (regolith 1 m, beta cloth, MLI, interior panel) from "
+             "Eqs. (@eq:steady)–(@eq:warmup) for six warm-up days: (a) temperature profiles; (b) departure from the steady "
+             "profile with the real inside temperature. The full correction overshoots the inner panel; the warm-up-aware "
+             "correction does not.", 16.0, label="startupfig")
 
     m.heading("Photovoltaics and storage", 2, label="pvsec")
     m.para(
-        "Power is part of the habitat's energy balance, and the audit found that every EnergyPlus PV cell-temperature "
-        "model assumes Earth air: the NOCT form of the one-diode model, the Sandia fits and PVWatts all cool the module "
-        "by convection to air and wind. In vacuum a module cools only by radiation from both faces. Off-Earth, Thermonaut "
-        "computes the cell temperature of the equivalent one-diode model [@EPlus262] in its Decoupled mode from the "
-        "steady energy balance of a thin module,")
+        "Every EnergyPlus PV cell-temperature model assumes Earth air. Off-Earth, Thermonaut computes the cell "
+        "temperature of the equivalent one-diode model [@EPlus262] in Decoupled mode from the steady balance of a thin, "
+        "free-standing module with both faces exposed,")
     m.equation(r"\left(\tau\alpha-\eta\right)G=\varepsilon_{f}\sigma\left(T^{4}-T_{f}^{4}\right)+\varepsilon_{b}\sigma\left(T^{4}-T_{b}^{4}\right)+2h\left(T-T_{a}\right)",
                label="pvcell")
     m.para(
-        "where G is the plane-of-array irradiance, η the electrical efficiency, ε_{f} = ε_{b} = 0.85 (constant), "
-        "T_{f}⁴ and T_{b}⁴ the view-weighted fourth powers of the sky and regolith temperatures seen by the front and back "
-        "faces, and h the mixed-convection coefficient of Eq. (@eq:mixed) on Mars (zero on the Moon). The balance is "
-        "solved by Newton iteration inside the engine's existing efficiency loop, which restarts every time step and is "
-        "repeated until η changes by less than 0.1%. No value is carried over from the previous step, so rapid changes "
-        "of insolation, such as sunrise over a Martian horizon, cannot destabilize it; the price is that the steady "
-        "balance ignores the module's heat capacity, which matters only for minutes. The simple PV model, which has no cell "
-        "temperature, and the integrated mode, which takes the cell temperature from the planetary surface heat "
-        "balance, run unchanged. Storage objects run unchanged as well, except that the Li-ion battery model, whose "
-        "thermal model otherwise uses the outdoor air temperature, must be placed in a zone, so that its losses become "
-        "cabin heat. Regenerative fuel cells and fission power have no planetary counterpart in the engine yet.")
+        "where G is the plane-of-array irradiance, η the electrical efficiency, ε_{f} = ε_{b} = 0.85, T_{f}⁴ and T_{b}⁴ "
+        "the view-weighted fourth powers of the sky and regolith temperatures seen by each face (front sky view "
+        "(1 + cos β)/2), and h the coefficient of Eq. (@eq:mixed) on Mars (zero on the Moon). The balance is solved by "
+        "Newton iteration inside the engine's efficiency loop, which restarts every time step and repeats until η "
+        "changes by less than 0.1%. Mutual shading and radiative coupling within an array are not modelled. The steady "
+        "balance neglects heat capacity: for a module of about 4 kJ/(m²K) and a radiative conductance of about "
+        "14 W/(m²K) the time constant is about 5 min, close to the 3-min step. Because T ∝ ε^{−1/4} in sunlight, a 10% "
+        "change in emissivity changes the sunlit cell temperature by about 2.5% (8 K). The Li-ion battery model runs "
+        "unchanged but must sit in a zone, so that its losses become cabin heat.")
 
     m.heading("Refusing what cannot be right", 2, label="refuse")
     m.para(
-        "After input processing, a validator stops the run with a severe error if the input contains an object that "
-        "needs outdoor air or Earth weather. The list covers infiltration and ventilation objects, outdoor-air "
-        "controllers, mixers and nodes, air-cooled and evaporatively cooled equipment (DX coils, packaged terminal "
-        "units, VRF, the electric EIR chiller), cooling towers, fluid coolers and evaporative coolers, combustion and "
-        "wind generators, PVWatts, the Sandia PV model in Decoupled mode and the dynamic (Ulleberg) cell model, Li-ion "
-        "batteries without a zone, the Kiva foundation model, AirflowNetwork, DElight, design days and sizing. Each of these "
-        "would otherwise run and return numbers. The list is deliberately conservative; items leave it as their physics "
-        "is generalized.")
+        "After input processing a validator stops the run if any refused object type is present, whether or not it is "
+        "used: windows; infiltration and ventilation; outdoor-air controllers, mixers, nodes and outdoor-air zone "
+        "units; air- and evaporatively cooled condensers, chillers and coils; cooling towers and fluid coolers; "
+        "heat-pump water heaters with outdoor-air inlets; combustion and wind generators; ground heat exchangers, "
+        "EcoRoof and solar collectors; Sandia, PVWatts and dynamic PV models; batteries without a zone; Kiva and "
+        "AirflowNetwork; design days and sizing; SimpleCombined outside convection; one time step per hour (at which "
+        "EnergyPlus evaluates the sun at mid-hour); and water use without a scheduled mains temperature (full list with "
+        "reasons in supplementary material S9). As a backstop, a planetary run stops at the start of the next day if "
+        "any component has registered an outdoor-air node, whether or not its type is listed.")
 
 
 # =========================================================================== verification
-def verif_earth(m):
-    """Earth regression and unit tests (level-2)."""
-    m.heading("Earth: identical results and unit tests", 2, label="earth")
-    rows = [[f, c, r] for f, c, r in F["earth_regression"]["files"]]
+def verif_intro(m):
     m.para(
-        f"The first rule was tested directly. {N_EARTH} example files from the EnergyPlus distribution were run with an "
-        "unmodified v26.2.0 build and with Thermonaut, built with the same compiler (MSVC 14.44, release mode) and "
-        f"the same weather file ({F['earth_regression']['weather']}), and every number of the complete output time "
-        f"series was compared. The files were chosen to exercise every hook (Table @tab:earthreg): CTF and CondFD "
-        "conduction with temperature-dependent conductivity, every convection path, ground contact, windows and "
-        "daylighting, sizing and design days, VAV and DX systems, plant and chillers, PV and batteries, moisture "
-        f"models, Kiva and solar collectors. All {N_EARTH} gave bit-for-bit identical results after every patch set, "
-        "including the weather-file and PV hooks of M2 and the changes of M2c–M2d. A fifteenth file (HAMT_HourlyProfileReport) fails with this "
-        "weather file in both builds and was excluded. The full EnergyPlus unit-test suite "
-        f"({UT['tests']:,} tests in {UT['suites']} suites) also passes on the fork with {UT['failed']} failures.")
-    m.table(["Example file", "Exercises", "Result"], rows,
-            f"Earth regression: Thermonaut versus unmodified EnergyPlus v26.2.0, full output time series "
-            f"({F['earth_regression']['weather']}).", col_widths_cm=[6.5, 6.5, 2.5], font_size=8, label="earthreg")
+        "Each result below is reported at the level of evidence it supports (Table @tab:vv). No system-level validation "
+        "exists: there is no measured habitat-scale dataset, and none of the checks should be read as validation of a "
+        "complete habitat's thermal response.")
+    rows = [
+        ["1 Software regression", "Earth results unchanged", f"{N_EARTH} example files, two climates; {UT['tests']:,} upstream unit tests", sec("earth")],
+        ["2 Planetary software tests", "Inputs accepted and refused as specified", f"{TS['total']} end-to-end tests", sec("earth")],
+        ["3 Numerical verification", "Implemented equations satisfied", "Closed-form boundary balances; PV residual", sec("indep", "pvver")],
+        ["4 Component checks", "Components agree with independent references", "JPL Horizons; Diviner and Apollo; NIST CO2", sec("indep")],
+        ["5 Code-to-code", "Two implementations solve the same model alike", "ExoBEM, two habitats, two bodies", sec("cross", "habver")],
+        ["6 Sensitivity", "Effect of uncertain inputs and numerics", "Start-up, spin-up, grid, step; regolith, envelope, dust", sec("startupres", "sens")],
+        ["– System validation", "Prediction of a real habitat", "Not available", sec("limcore")],
+    ]
+    m.table(["Level", "What it shows", "Evidence", "Where"], rows,
+            "Verification and validation evidence by level.", col_widths_cm=[3.4, 4.4, 5.2, 3.0], font_size=7.5, label="vv")
+
+
+def verif_earth(m):
+    m.heading("Earth regression and planetary software tests", 2, label="earth")
+    m.para(
+        f"{N_EARTH} example files from the EnergyPlus distribution, chosen to exercise every hook (CTF and CondFD with "
+        "k(T), every convection path, ground contact and Kiva, windows and daylighting, sizing, VAV, DX, plant, PV and "
+        "batteries, moisture models and solar collectors), were run with an unmodified v26.2.0 build and with "
+        "Thermonaut, both release builds from the same compiler (MSVC 14.44, Windows 11), and every number of the "
+        f"complete output time series was compared: about {N_VALUES/1e6:.1f} million values per climate. With Chicago "
+        f"TMY3 weather {N_IDENT['chicago']} of {N_RUN['chicago']} runnable files and with Phoenix TMY3 weather "
+        f"{N_IDENT['phoenix']} of {N_RUN['phoenix']} were bit-for-bit identical; one further file does not run with "
+        f"either weather file in either build. The upstream unit tests ({UT['tests']:,} in {UT['suites']} suites) pass "
+        "unchanged, but they do not exercise the planetary mode. The claim is therefore bit-for-bit identity for the "
+        "tested files, climates and build, which every patch set from M1 to M2e was required to pass (per-file record "
+        f"in supplementary material S3). The planetary mode is covered by {TS['total']} end-to-end tests "
+        "(supplementary material S4): valid habitat inputs with and without a weather file; weather files for the "
+        "wrong body, with a missing column, negative irradiance, missing ground temperature, albedo above 1, unequal "
+        "spacing, short coverage or no PWF header; refusal of infiltration, Earth-fitted PV models, a battery without "
+        "a zone, a negative horizon, SimpleCombined convection, one step per hour, unscheduled water mains, EcoRoof, "
+        "windows and an air-cooled chiller; and a Site:PlanetaryBody object with Body = Earth, whose output is identical "
+        f"to that of the same file without it. All {TS['passed']} pass.")
 
 
 def verif_independent(m):
-    """Checks against independent references and closed-form balances (level-2)."""
     hm, hr = HZ["moon_equator"], HZ["mars_jezero"]
     mv, mc = BC["moon_vacuum"], BC["mars_convection"]
-    m.heading("Off-Earth checks against independent references", 2, label="indep")
-    m.para(
-        "Off-Earth there is no measured building to compare with. The engine's planetary parts were therefore checked "
-        "against references that share nothing with this work (Table @tab:indep): an independent ephemeris for the "
-        "Sun, orbital measurements of the lunar regolith, closed-form solutions of the exterior boundary and tabulated "
-        "gas properties.")
+    dz = RB["depth"]
+    m.heading("Numerical and component checks against independent references", 2, label="indep")
     rows = [
-        ["Solar altitude, Moon equator (59 days)", "JPL Horizons [@Horizons]",
+        ["Solar altitude, lunar equator, 59 d (4)", "JPL Horizons [@Horizons]",
          f"RMSE {hm['rmse_all_deg']:.2f}°; sunlit hours {hm['sunrise_hours_engine']} vs {hm['sunrise_hours_horizons']}"],
-        ["Solar altitude, Mars Jezero (31 days)", "JPL Horizons [@Horizons]",
-         f"RMSE {hr['rmse_all_deg']:.2f}° (sunlit {hr['rmse_sunlit_deg']:.2f}°, bias {hr['bias_sunlit_deg']:+.2f}°); sunlit hours {hr['sunrise_hours_engine']} vs {hr['sunrise_hours_horizons']}"],
-        ["Lunar equatorial regolith surface, noon / pre-dawn", "≈385–390 K / ≈95 K (Diviner) [@Vasavada2012;Hayne2017]",
-         f"{MR['Tg_max_K']:.0f} K / {MR['Tg_min_K']:.0f} K"],
-        ["Lunar regolith at depth", "≈252–256 K near 1 m (Apollo, Diviner) [@Vasavada2012]",
-         f"{MR['T_deep_3m_K']:.0f} K at 3 m (geothermal gradient ≈ 2 K/m)"],
-        ["Convection in vacuum (every outer face, 3-min steps)", "Exactly zero", f"Maximum |q| {mv['max_abs_convection_W_m2']:.0f} W/m² over {mv['steps']:,} face-steps"],
-        ["Net long-wave on outer faces in vacuum", "εσ[F_{sky}(T_{sky}⁴ − T⁴) + F_{g}(T_{g}⁴ − T⁴)]",
-         f"RMSE {mv['lw_residual_rmse_W_m2']:.2f} W/m² (mean magnitude {mv['lw_mean_abs_W_m2']:.0f} W/m²); 99% of steps within {mv['lw_residual_p99_W_m2']:.2f} W/m²"],
-        ["Outer-face energy balance in vacuum", "Solar + long-wave + convection + conduction = 0", f"Closes to rounding (RMSE {mv['balance_residual_rmse_W_m2']:.1g} W/m²)"],
-        ["Exterior convection on Mars (top facet)", "Same correlations with NIST CO2 properties at 700 Pa [@NISTWebBook]",
-         f"{mc['rel_diff_mean_pct']:+.1f}% (RMSE {mc['rel_diff_rmse_pct']:.1f}%) over {mc['steps_used']:,} steps"],
+        ["Solar altitude, Jezero, 31 d (4)", "JPL Horizons [@Horizons]", f"RMSE {hr['rmse_all_deg']:.2f}° (sunlit bias {hr['bias_sunlit_deg']:+.2f}°)"],
+        ["Lunar equatorial surface, noon / pre-dawn (4)", "≈385–390 K / ≈95 K, Diviner [@Vasavada2012]", f"{MR['Tg_max_K']:.0f} K / {MR['Tg_min_K']:.0f} K"],
+        ["Lunar regolith at 1 m (4)", "≈252–256 K, Diviner-constrained model, Apollo heat flow [@Vasavada2012;Hayne2017]",
+         f"{dz['1.0']:.1f} K (0.5 m {dz['0.5']:.0f} K; 2 m {dz['2.0']:.0f} K; 3 m {dz['3.0']:.0f} K)"],
+        ["Convection in vacuum, every outer face (3)", "Zero", f"Zero over {mv['steps']:,} face-steps"],
+        ["Net long-wave on outer faces in vacuum (3)", "εσ[F_{sky}(T_{sky}⁴ − T⁴) + F_{g}(T_{g}⁴ − T⁴)]",
+         f"RMSE {mv['lw_residual_rmse_W_m2']:.2f} W/m² (mean magnitude {mv['lw_mean_abs_W_m2']:.0f} W/m²)"],
+        ["Martian exterior convection (4, properties)", "Same correlations with NIST CO2 at 700 Pa [@NISTWebBook]",
+         f"{mc['rel_diff_mean_pct']:+.1f}% (RMSE {mc['rel_diff_rmse_pct']:.1f}%)"],
     ]
-    m.table(["Quantity", "Independent reference", "Thermonaut"], rows,
-            "Off-Earth checks of Thermonaut against independent references and closed-form balances.",
-            col_widths_cm=[4.6, 5.4, 6.0], font_size=7.5, label="indep")
+    m.table(["Quantity (level)", "Independent reference", "Thermonaut"], rows,
+            "Numerical and component checks against references independent of this work.",
+            col_widths_cm=[4.6, 5.6, 5.8], font_size=7.3, label="indep")
     m.para(
         f"The sun follows the Horizons ephemeris within {hm['rmse_all_deg']:.2f}° on the Moon and {hr['rmse_all_deg']:.2f}° on "
-        "Mars, which confirms the generalized hour angle and the daily fit independently of any code written for this "
-        "work; the Martian bias is the EnergyPlus convention of evaluating the sun at the end of each 3-minute step, "
-        "during which the Sun moves by 0.7°. The engine's own regolith column reproduces the Diviner noon and pre-dawn "
-        "temperatures. In vacuum the exterior boundary satisfies its defining equations: there is no convection, the "
-        "long-wave exchange is the closed-form expression with all of the sky view at the sky temperature and the "
-        "ground view at the regolith temperature, and the face balance closes. The few larger long-wave residuals, "
-        "13–22 of 14,400 steps per wall, occur in the single step in which sunlight reaches or leaves a wall and its "
-        "temperature jumps by 30–37 K; EnergyPlus linearizes the long-wave term about the previous step's temperature, "
-        "on Earth as here. On Mars the exterior convection coefficient agrees within 2% with a calculation that uses "
-        "measured CO2 properties instead of the engine's property fits. With the PV cell balance of Section @sec:pvver, "
-        "these checks cover the parts of the engine that the port changed; what they cannot cover is the behaviour of a "
-        "whole habitat, for which no measurements exist.")
+        "Mars; the Martian bias comes from the EnergyPlus convention of evaluating the sun at the end of each 3-min step, "
+        "during which the Sun moves 0.7°. The regolith reproduces the Diviner noon and pre-dawn temperatures and, at the "
+        f"depth of the reference, gives {dz['1.0']:.0f} K at 1 m against ≈252–256 K, itself uncertain by a few kelvin. "
+        "In vacuum the exterior boundary satisfies its defining equations; the few larger long-wave residuals occur in "
+        "the step in which sunlight reaches or leaves a wall and its temperature jumps by 30–37 K, because EnergyPlus "
+        "linearizes long-wave exchange about the previous temperature, on Earth as here. The Martian convection check "
+        "confirms the implemented calculation and the engine's gas-property fits, not the correlations themselves, whose "
+        f"applicability is discussed in {sec('extbc')}.")
 
 
 def verif_cross(m):
-    """Cross-verification against the Python ExoBEM: regolith-shielded module (level-2)."""
     hb = F["habitat"]
-    m.heading("Code-to-code check against ExoBEM: regolith-shielded module", 2, label="cross")
+    m.heading("Code-to-code comparison: regolith-shielded module", 2, label="cross")
     m.para(
-        "The whole habitat response was then compared with a second, separately written implementation of the same "
-        "physics: the Python ExoBEM, whose terrestrial core agrees with EnergyPlus within "
-        "0.7% and whose planetary models reproduce Mars24, Diviner, Appelbaum–Flood and MEDA reference data "
-        f"{exo_ref()}. This is a comparative verification in the sense of Oberkampf and Roy [@Oberkampf2010]: "
-        "it is a code-to-code check. Agreement shows that the two codes solve the same equations, with different "
-        "conduction solvers, grids and start-up procedures, not that the equations are right, which is the job of "
-        "Section @sec:indep and of ExoBEM's reference-data checks. The two programs share no code. Two habitats were used: a "
-        "regolith-shielded module that exercises the regolith, the start-up and the Martian atmosphere, and a "
-        "NASA-class surface habitat that exercises a light envelope, crew moisture and humidity control (Section "
-        "@sec:habver). Fig. @fig:habitats shows both.")
+        "The complete response was compared with ExoBEM [@ZhangExoBEM], a Python implementation of the same planetary "
+        "model by the same authors. The two codes share the physical model (the equations and parameters of sun, "
+        "environment, boundaries and cabin) and the weather format, but no code; they differ in language, conduction "
+        "solver (CondFD or CTF versus finite volumes on stretched grids), grids, surface–air coupling (iterative versus "
+        "simultaneous) and start-up. Agreement therefore shows that both solve that model alike [@Oberkampf2010], not "
+        "that the model is right, and it cannot reveal an error the two share. Two habitats were used "
+        "(Fig. @fig:habitats).")
     m.figure(FIG / "core_fig5_habitats.png",
-             "The two verification habitats, drawn from the vertices written to the input files: (a) the regolith-shielded "
-             "module of Section @sec:cross and (b) the NASA-class four-crew lunar habitat of Section @sec:habver. (c, d) "
-             "Habitat (b) at the lunar equator over 30 Earth days: sensible and latent cooling and outer-face temperatures "
-             "of the south wall and the floor, ExoBEM (solid) and Thermonaut (dashed).", 16.0, label="habitats")
+             "The two habitats, drawn from the input-file vertices: (a) the regolith-shielded module; (b) the "
+             "NASA-informed four-crew lunar habitat. (c, d) Habitat (b) at the lunar equator over 30 days: sensible and "
+             "latent cooling and outer-face temperatures, ExoBEM (solid) and Thermonaut (dashed).", 16.0, label="habitats")
     m.para(
-        f"The module is a horizontal cylinder of radius {hb['radius_m']:.0f} m and length {hb['length_m']:.0f} m with "
-        f"{hb['facets']} shell facets, under {hb['cover_m']:.0f} m of regolith over MLI (Moon) or 20 mm of aerogel "
-        f"(Mars), with a cabin at {hb['cabin_kPa']} kPa and {100*hb['o2']:.1f}% oxygen, constant internal gains of "
-        f"{hb['gains_W']:,.0f} W and ideal loads holding {hb['setpoints_C'][0]}–{hb['setpoints_C'][1]} °C, at "
-        f"{hb['timestep_min']}-minute time steps. The Moon case is at the equator of Mare Tranquillitatis for two "
-        "lunations from 1 January 2030; the Mars case is at Jezero crater for 31 Earth days from the same date. "
-        "Thermonaut solves conduction with CondFD, the regolith's k(T) and c_{p}(T) entered as standard "
-        "temperature-dependent material tables; ExoBEM uses its own finite-volume solver with a stretched grid, planar "
-        "layers as in the engine, and solves surfaces and air simultaneously. One simplification was needed: CondFD "
-        "cannot resolve the 4 mm aluminium pressure wall at this time step, so its heat capacity was lumped into the "
-        "interior panel and its negligible resistance (3×10^{-5} m²K/W) dropped.")
-    m.para(
-        "Thermonaut was run twice: with its own environment generator, which tests the C++ port of the environment "
-        "models, and reading the PWF file that ExoBEM wrote for its own run, which gives both codes the same "
-        "environment and isolates the heat balance. Results are compared over the second lunation on the Moon and "
-        "days 16–31 on Mars, after both start-up procedures have settled (Table @tab:cross).")
+        f"The module is a horizontal cylinder (radius {hb['radius_m']:.0f} m, length {hb['length_m']:.0f} m, {hb['facets']} "
+        f"facets) under {hb['cover_m']:.0f} m of regolith over MLI (Moon) or 20 mm of aerogel (Mars), with a "
+        f"{hb['cabin_kPa']} kPa, {100*hb['o2']:.1f}% O2 cabin, {hb['gains_W']:,.0f} W of gains and ideal loads at "
+        f"{hb['setpoints_C'][0]}–{hb['setpoints_C'][1]} °C, at 3-min steps, for two lunations at the lunar equator and 31 "
+        "days at Jezero from 1 January 2030. CondFD cannot resolve the 4 mm aluminium wall at this step, so its capacity "
+        "was lumped into the panel. Thermonaut ran with its own generator and with the weather file ExoBEM wrote; the "
+        "latter fixes the environment and isolates the heat balance (Table @tab:cross).")
     rows = [
-        ["Sensible cooling, C++ / Python (kWh)",
-         f"{CMg['energy']['ep_cooling_kWh']:.1f} / {CM['energy']['ep_cooling_kWh']:.1f} / {CM['energy']['py_cooling_kWh']:.1f}",
-         f"{CRg['energy']['ep_cooling_kWh']:.1f} / {CR['energy']['ep_cooling_kWh']:.1f} / {CR['energy']['py_cooling_kWh']:.1f}"],
-        ["Cooling difference vs ExoBEM (%)", f"{MOON_DIFF_G:+.2f} / {MOON_DIFF:+.2f}", f"{MARS_DIFF_G:+.2f} / {MARS_DIFF:+.2f}"],
-        ["Hourly cooling RMSE (W)", f"{CMg['Qc']['rmse']:.1f} / {CM['Qc']['rmse']:.1f}", f"{CRg['Qc']['rmse']:.0f} / {CR['Qc']['rmse']:.0f}"],
-        ["Regolith surface temperature RMSE (K)", f"{CMg['Tg']['rmse']:.2f} / {CM['Tg']['rmse']:.3f}",
-         f"{CRg['Tg']['rmse']:.2f} / {CR['Tg']['rmse']:.3f}"],
-        ["Sky temperature RMSE (K)", "0 (2.725 K)", f"{CRg['Tsky']['rmse']:.2f} / {CR['Tsky']['rmse']:.3f}"],
-        ["Deep regolith temperature, C++ / Python (°C)", f"{CMg['Tdeep']['ep_mean']:.2f} / {CMg['Tdeep']['py_mean']:.2f}",
-         f"{CRg['Tdeep']['ep_mean']:.2f} / {CRg['Tdeep']['py_mean']:.2f}"],
-        ["Direct normal irradiance R²", f"{CMg['beam']['r2']:.4f}", f"{CRg['beam']['r2']:.4f}"],
-        ["Diffuse horizontal irradiance R²", "— (none)", f"{CRg['dif']['r2']:.4f}"],
-        ["Top facet outer-face temperature RMSE (K)", f"{CMg['top']['rmse']:.2f} / {CM['top']['rmse']:.2f}",
-         f"{CRg['top']['rmse']:.2f} / {CR['top']['rmse']:.2f}"],
-        ["Top facet inner-face temperature RMSE (K)", f"{CMg['tin_top']['rmse']:.3f} / {CM['tin_top']['rmse']:.3f}",
-         f"{CRg['tin_top']['rmse']:.2f} / {CR['tin_top']['rmse']:.2f}"],
-        ["Interior convection coefficient, C++ / Python (W/m²K)", f"{CM['hin_top']['ep_mean']:.2f} / {CM['hin_top']['py_mean']:.2f}",
-         f"{CR['hin_top']['ep_mean']:.2f} / {CR['hin_top']['py_mean']:.2f}"],
-        ["Exterior convection coefficient, C++ / Python (W/m²K)", "0 / 0",
-         f"{CR['hout_top']['ep_mean']:.3f} / {CR['hout_top']['py_mean']:.3f}"],
+        ["Sensible cooling, generator / PWF / ExoBEM (kWh)",
+         f"{CMg['energy']['ep_cooling_kWh']:.0f} / {CM['energy']['ep_cooling_kWh']:.0f} / {CM['energy']['py_cooling_kWh']:.0f} ({MOON_DIFF_G:+.2f}% / {MOON_DIFF:+.2f}%)",
+         f"{CRg['energy']['ep_cooling_kWh']:.0f} / {CR['energy']['ep_cooling_kWh']:.0f} / {CR['energy']['py_cooling_kWh']:.0f} ({MARS_DIFF_G:+.2f}% / {MARS_DIFF:+.2f}%)"],
+        ["Hourly cooling RMSE, generator / PWF (W)", f"{CMg['Qc']['rmse']:.1f} / {CM['Qc']['rmse']:.1f}", f"{CRg['Qc']['rmse']:.0f} / {CR['Qc']['rmse']:.0f}"],
+        ["Regolith surface RMSE, generator (K)", f"{CMg['Tg']['rmse']:.2f}", f"{CRg['Tg']['rmse']:.2f}"],
+        ["Direct normal irradiance R² / RMSE, generator (W/m²)", f"{CMg['beam']['r2']:.4f} / {CMg['beam']['rmse']:.1f}",
+         f"{CRg['beam']['r2']:.4f} / {CRg['beam']['rmse']:.1f}"],
+        ["Top facet outer / inner face RMSE, PWF (K)", f"{CM['top']['rmse']:.2f} / {CM['tin_top']['rmse']:.3f}", f"{CR['top']['rmse']:.2f} / {CR['tin_top']['rmse']:.2f}"],
     ]
-    m.table(["Quantity (hourly values)", f"Moon, equator, 2nd lunation ({CM['energy']['hours']} h)",
-             f"Mars, Jezero, days 16–31 ({CR['energy']['hours']} h)"], rows,
-            "Agreement between Thermonaut (C++) and ExoBEM (Python) for the regolith-shielded module. Pairs a / b give "
-            "Thermonaut with its own generator / reading the PWF file; the first row gives generator / PWF / ExoBEM.",
-            col_widths_cm=[5.6, 5.2, 5.2], font_size=8, label="cross")
-    m.para(
-        "The generated environments agree closely (Fig. @fig:coreenv). The solar altitude follows the ephemeris over the "
-        "whole lunation and over each sol, which confirms that the generalized hour angle with a daily fit is sufficient "
-        f"for both bodies; direct irradiance has R² of {CMg['beam']['r2']:.4f} on the Moon and {CRg['beam']['r2']:.4f} on "
-        f"Mars. The regolith surface temperature, from {CMg['Tg']['ep_min']:.0f} to +{CMg['Tg']['ep_max']:.0f} °C on the "
-        f"Moon, agrees within {CMg['Tg']['rmse']:.2f} K RMSE and within {CRg['Tg']['rmse']:.2f} K on Mars, and the deep "
-        "regolith temperatures from the periodic equilibrium are the same to 0.01 K. The residual differences come from "
-        "evaluating the sun at the end of each time step (the EnergyPlus convention) rather than at its middle, and from "
-        "the hourly averaging of sub-hourly values.")
+    m.table(["Quantity (hourly values)", "Moon, 2nd lunation (720 h)", "Mars, days 16–31 (384 h)"], rows,
+            "Code-to-code comparison for the regolith-shielded module.", col_widths_cm=[6.0, 5.0, 5.0], font_size=7.5, label="cross")
     m.figure(FIG / "core_fig3_environment.png",
-             "Environment generated by Thermonaut (C++, dashed) and by ExoBEM (Python, solid) at the lunar equator over "
-             "two lunations (left) and at Jezero crater over three Earth days (right): (a, b) solar altitude, (c, d) "
-             "direct normal and diffuse horizontal irradiance, (e, f) regolith surface and sky temperatures.",
-             16.0, label="coreenv")
+             "Environment generated by Thermonaut (dashed) and ExoBEM (solid) at the lunar equator (left) and Jezero "
+             "(right): (a, b) solar altitude, (c, d) direct normal and diffuse irradiance, (e, f) regolith surface and sky "
+             "temperatures.", 16.0, label="coreenv")
     m.para(
-        f"The habitat responses agree as well (Fig. @fig:coreresp). On the Moon the cooling energy over the second "
-        f"lunation differs by {MOON_DIFF:+.2f}% and the hourly cooling load by {CM['Qc']['rmse']:.1f} W RMSE; the top "
-        f"facet's outer face, which follows the 290 K swing of the lunar day, agrees within {CM['top']['rmse']:.2f} K "
-        f"and its inner face within {CM['tin_top']['rmse']:.3f} K. On Mars the cooling energy differs by "
-        f"{MARS_DIFF_G:+.2f}% with the generator and {MARS_DIFF:+.2f}% with the PWF file, and the interior convection "
-        "coefficients by 1%. Because the PWF run removes every environment difference and does not reduce the residual, "
-        "the residual lies in the heat-balance solution, not in the environment. It is a slowly decaying offset: the "
-        "CO2-filled regolith cover conducts about twenty times better than lunar regolith, so the envelope exchanges "
-        "about 1.3 kW with the environment and its deep layers are still drifting after a month in both codes, from "
-        "different starting states (a pseudo-transient steady state in ExoBEM, the profile of Eq. (@eq:steady) in "
-        "Thermonaut). Differences in grid (CondFD's uniform nodes per layer versus a stretched grid) contribute as well.")
+        f"The generated environments agree closely (Fig. @fig:coreenv), and the responses within {abs(MOON_DIFF):.2f}% "
+        f"(Moon) and {abs(MARS_DIFF):.1f}% (Mars) in cooling energy (Fig. @fig:coreresp). Because the weather-file run "
+        "removes every environment difference without reducing the residual, the residual lies in the heat balance: in "
+        "the codes' initial regolith states, whose memory outlasts the comparison window (Section @sec:startupres), and "
+        "in their grids.")
     m.figure(FIG / "core_fig4_response.png",
-             "Response of the regolith-shielded module in Thermonaut reading the PWF file (C++, dashed) and ExoBEM "
-             "(Python, solid) at the lunar equator (left) and Jezero crater (right): (a, b) sensible cooling load, "
-             "(c, d) outer-face and (e, f) inner-face temperature of the top shell facet. The shaded band is the "
-             "comparison window. With the start-up correction of M2d no first-day transient remains (Section @sec:startupres).",
+             "Response of the regolith-shielded module, Thermonaut reading the weather file (dashed) and ExoBEM (solid): "
+             "(a, b) sensible cooling, (c, d) outer and (e, f) inner face of the top facet. Shading: comparison window.",
              16.0, label="coreresp")
 
 
 def verif_startup(m):
-    """Start-up ablation and the removed transient (level-2)."""
-    rows = [[r[0].replace(" C ", " °C "), r[1] if r[1] is not None else "not run", r[2], r[3]] for r in F["startup_ablation"]["rows"]]
     m.heading("Start-up of regolith-covered walls", 2, label="startupres")
+    rows = [[r[0].replace(" C ", " °C "), r[1] if r[1] is not None else "not run",
+             r[2], "—" if (r[3] is None or "�" in str(r[3])) else r[3]] for r in F["startup_ablation"]["rows"]]
+    sp, st = RB["spinup"], RB["startup"]
+    st_max = max(abs(v["vs_base_pct"]) for k, v in st.items() if k != "warmup_min20")
     m.para(
-        "The start-up procedure turned out to matter more than any other choice in the port (Table @tab:startup). With "
-        "the EnergyPlus default, walls at 23 °C and warm-up by repeating the first day, the Mars cooling load over the "
-        "comparison period was 32% higher than in ExoBEM, because the inner part of the regolith cover was still "
-        "releasing the heat of its unrealistically warm start. A steady linear profile with constant conductivities "
-        "reduced the error to −2.5%. The k(T)-aware profile of Eq. (@eq:steady) with the full post-warm-up correction "
-        "brought the comparison windows within 0.01% (Moon) and 0.9% (Mars), but left a transient: in the first hour "
-        "after warm-up the cooling load was 2.4 kW (Moon) and 0.43 kW (Mars) too high and the inner face of the shell "
-        "7 K and 2 K too warm, decaying within about a day. The cause was the correction itself, which was also added to "
-        "the inner layers that warm-up had already brought to the real inside temperature.")
-    m.table(["Start-up treatment of CondFD walls", "Moon cooling vs ExoBEM (%)", "Mars cooling vs ExoBEM (%)",
-             "First-hour cooling excess, Moon / Mars (W)"], rows,
-            "Effect of the wall start-up treatment (Thermonaut with its own environment generator). The first two rows are "
-            "from M1, before the Martian long-wave recalibration of M2c.",
-            col_widths_cm=[7.2, 2.8, 2.8, 3.2], font_size=8, label="startup")
+        "The start-up mattered more than any other choice (Table @tab:startup). With the EnergyPlus default the Mars "
+        "cooling over the comparison window was 32% higher than in ExoBEM, because the regolith was still releasing the "
+        "heat of its warm start. A steady profile reduced the difference to −2.5%; the k(T) profile with the full "
+        "correction brought the windows within 0.01% (Moon) and 0.9% (Mars) but left a transient of 2.4 kW on the Moon "
+        "at the start of the run, caused by the overshoot of Fig. @fig:startupfig; the warm-up-aware correction "
+        "removes it.")
+    m.table(["Start-up treatment of CondFD walls", "Moon vs ExoBEM (%)", "Mars vs ExoBEM (%)", "First-hour excess, Moon / Mars (W)"], rows,
+            "Effect of the start-up treatment (generator mode; the first two rows predate the M2c Mars long-wave update).",
+            col_widths_cm=[7.2, 2.6, 2.6, 3.6], font_size=7.5, label="startup")
     m.para(
-        f"The correction of Eq. (@eq:warmup) (M2d) removes the transient: the first-hour cooling now differs from "
-        "ExoBEM by 68 W on the Moon and 111 W on Mars, and the inner face by less than 0.4 K. The window agreement moves "
-        f"to {MOON_DIFF_G:+.2f}% (Moon) and {MARS_DIFF_G:+.1f}% (Mars). The near-perfect lunar agreement before the fix had "
-        "therefore been helped by the overshoot, which offset a small difference in how the two codes start the regolith "
-        "cover: ExoBEM solves a pseudo-transient steady state with period-mean boundary conditions, Thermonaut builds the "
-        "steady profile of Eq. (@eq:steady) from a T⁴-mean outer-face temperature. With a 1 m cover whose time constant "
-        "is months to years, that difference does not decay within the comparison window. The lesson applies beyond "
-        "planetary habitats: any construction whose time constant exceeds the warm-up period, such as earth-sheltered "
-        "walls or thick ground slabs, inherits its initial state for months.")
+        "Two further tests bound what remains. Against a long spin-up that needs no correction, a 25-month Mars run and "
+        f"a 31-day run ending on the same date differ by {sp['mars_short_vs_long_pct']:+.2f}% in cooling over the final "
+        f"16 days, whereas a 36-month and a two-lunation lunar run differ by {sp['moon_short_vs_long_pct']:+.1f}% over "
+        "the final lunation: the corrected start is effectively at equilibrium on Mars, while the lunar regolith, whose "
+        "time constant is years, keeps about 1% of start-up memory after two lunations. The 31-day Mars result changes "
+        f"by at most {st_max:.2f}% when the minimum warm-up is shortened from 6 to 1 day, the CondFD space-discretization "
+        "constant changed from 30 to 10 or 90, or the time step from 3 to 2 or 6 min, and by "
+        f"{st['warmup_min20']['vs_base_pct']:+.2f}% when warm-up is extended to 20 days, which repeats the first day's "
+        "forcing long enough to shift the deep state (supplementary material S5). For lunar design studies a one-year "
+        "spin-up is therefore advisable. The lesson applies beyond planetary habitats: any construction whose time "
+        "constant exceeds the warm-up period, such as an earth-sheltered wall or a thick slab, inherits its initial "
+        "state for months.")
 
 
 def verif_habitat(m):
-    """Cross-verification on the NASA-class lunar habitat and the PV check (level-2)."""
     e = LH["energy"]
-    m.heading("Code-to-code check against ExoBEM: NASA-class lunar habitat", 2, label="habver")
+    hu_t, hu_p = HU["engine"], HU["exobem"]
+    m.heading("Code-to-code comparison: NASA-informed lunar habitat", 2, label="habver")
     m.para(
-        f"The second case is the lunar surface habitat of the ExoBEM paper, sized after NASA's Artemis surface-habitat "
-        f"studies [@Kessler2022;Burke2022]: {LHF['crew']} crew in a vertical cylinder of 6.5 m diameter and 5.25 m height "
-        f"({LHF['volume_m3']:.0f} m³) standing on legs, with an envelope of beta cloth, MLI (R 19.2 m²K/W), 4 mm of aluminium "
-        "and a 10 mm interior panel. "
-        "The cabin is at 56.5 kPa with 34% oxygen, held at 20–25 °C and 30–60% relative humidity. "
-        f"About {LHF['electric_kW']:.0f} kW of electric power is used inside the "
-        "shell by life support, electrolysis, fans, lighting and avionics; part of it is carried away by cold plates "
-        "directly to the coolant loop, and part of the electrolysis power leaves as chemical energy. Crew sensible and "
-        "latent heat follow BVAD values and schedules [@Anderson2018], and racks and stowage are internal mass. The "
-        "habitat sits at the lunar equator for 30 days from 1 January 2030 with 3-minute steps, and both codes read the "
-        "same PWF file.")
+        "The second case is a representative four-crew lunar habitat informed by NASA surface-habitat studies "
+        f"[@Kessler2022;Burke2022;Schunk2022]: a vertical cylinder of 6.5 m diameter and 5.25 m height ({LHF['volume_m3']:.0f} m³) "
+        "on legs, with beta cloth, MLI (R 19.2 m²K/W), 4 mm aluminium and a 10 mm panel; a 56.5 kPa, 34% O2 cabin at "
+        "20–25 °C and 30–60% relative humidity; about 14 kW of electric power inside the shell, partly removed by cold "
+        "plates and partly leaving as electrolysis products; BVAD crew heat and moisture [@Anderson2018]; and internal "
+        "mass. It is a design benchmark, not an official NASA configuration: supplementary material S7 gives the source "
+        "of each input, separating values from NASA documents, values derived from them (the MLI resistance, calibrated "
+        "to NASA's night-time heat leak) and the authors' assumptions (life-support share of the load, cold-plate "
+        "fractions, lighting density). Leakage of 0.05% of the cabin mass per day and two airlock cycles a week need "
+        "about 0.3 kg/day of make-up gas; heating it from storage to cabin temperature takes less than 1 W, so the "
+        "sealed cabin carries no outdoor-air load. Compression and oxygen generation are life-support electric loads "
+        "inside the 14 kW.")
     m.para(
-        "The input file was written from ExoBEM's model by a script, so that both codes describe the same habitat: the "
-        "geometry from the model's surface vertices, the MLI as a no-mass resistance, CTF conduction, the crew latent "
-        "heat as the latent fraction of OtherEquipment objects, the cold-plate and chemical shares as their \"lost\" "
-        "fraction, and an ideal-loads system with a humidistat (30–60%). Over days 4–30, after the start-up "
-        f"({e['hours']} h), the codes agree within {HAB_S:+.2f}% in sensible cooling and {HAB_L:+.1f}% in latent cooling "
-        f"(Table @tab:habver, Fig. @fig:habitats c, d). Outer-face temperatures, which swing from −150 to +120 °C, agree "
-        "within 0.03–0.32 K RMSE and inner faces within 0.1 K.")
+        "Both codes read the same weather file for 30 days at the lunar equator; the engine's input was written from "
+        "ExoBEM's model by a script (CTF, crew latent heat as an OtherEquipment latent fraction, cold-plate and chemical "
+        f"shares as its lost fraction, humidistat ideal loads). Over days 4–30 the codes agree within {HAB_S:+.2f}% in "
+        f"sensible and {HAB_L:+.1f}% in latent cooling (Table @tab:habver, Fig. @fig:habitats).")
     rows = [
-        ["Sensible cooling (kWh)", f"{e['ep_sensible_kWh']:.1f}", f"{e['py_sensible_kWh']:.1f}",
-         f"{HAB_S:+.2f}% (hourly RMSE {LH['Qc']['rmse']:.0f} W, R² {LH['Qc']['r2']:.4f})"],
-        ["Latent cooling (kWh)", f"{e['ep_latent_kWh']:.1f}", f"{e['py_latent_kWh']:.1f}", f"{HAB_L:+.1f}%"],
+        ["Sensible / latent cooling (kWh)", f"{e['ep_sensible_kWh']:.0f} / {e['ep_latent_kWh']:.0f}", f"{e['py_sensible_kWh']:.0f} / {e['py_latent_kWh']:.0f}",
+         f"{HAB_S:+.2f}% / {HAB_L:+.1f}%"],
         ["Outer-face RMSE, south wall / roof / floor (K)", "", "",
          f"{LH['wall_05']['outside_rmse']:.2f} / {LH['roof']['outside_rmse']:.2f} / {LH['floor']['outside_rmse']:.2f}"],
-        ["Inner-face RMSE, south wall / roof / floor (K)", "", "",
-         f"{LH['wall_05']['inside_rmse']:.2f} / {LH['roof']['inside_rmse']:.2f} / {LH['floor']['inside_rmse']:.2f}"],
-        ["Mean cabin relative humidity", f"{100*LH['rh']['ep_mean']:.0f}%", f"{100*LH['rh']['py_mean']:.0f}%",
-         "supply-air convention (see text)"],
+        ["Cabin relative humidity (%)", f"{hu_t['rh_min']:.0f}–{hu_t['rh_max']:.0f}", f"{hu_p['rh_min']:.0f}", "ideal-loads convention"],
+        ["Cabin dew point (°C)", f"{hu_t['dew_min']:.1f}–{hu_t['dew_max']:.1f}", f"{hu_p['dew_min']:.1f}", ""],
+        ["Coldest inside surface minus dew point (K)", f"{hu_t['margin_min_K']:.1f}", f"{hu_p['margin_min_K']:.1f}",
+         f"{hu_t['margin_min_K'] - hu_p['margin_min_K']:+.1f} K"],
         ["Run time, 30 days at 3-min steps (s)", f"{RT['habitat_cpp']:.1f}", f"{RT['habitat_python']:.0f}", ""],
     ]
     m.table(["Quantity", "Thermonaut", "ExoBEM", "Difference"], rows,
-            "NASA-class lunar habitat at the lunar equator, days 4–30: Thermonaut and ExoBEM on the same PWF file.",
-            col_widths_cm=[5.4, 2.4, 2.4, 5.8], font_size=8, label="habver")
+            "Lunar habitat at the lunar equator, days 4–30, both codes on the same weather file.",
+            col_widths_cm=[5.8, 2.8, 2.6, 4.8], font_size=7.5, label="habver")
     m.para(
-        "The one visible difference is the cabin humidity. EnergyPlus's ideal-loads system dries the supply air while it "
-        "cools, so the cabin settles near 48% instead of at the 60% humidistat limit, whereas ExoBEM models a condensing "
-        "heat exchanger that removes only the excess. Over time the water removed must equal the crew's moisture "
-        "production in both codes, which is why the latent energy agrees within 1%. The difference matters for the "
-        "dew-point margin of cold surfaces: in the engine it should be read from a real cooling coil, not from ideal "
-        "loads. A planetary condensing-heat-exchanger component that removes only the moisture above the humidistat "
-        "limit, as ExoBEM's model does, is planned (Section @sec:roadmap).")
+        "The humidity results differ in kind. EnergyPlus's ideal-loads system dries the supply air while it cools, so the "
+        f"cabin settles at {hu_t['rh_min']:.0f}–{hu_t['rh_max']:.0f}% instead of the 60% limit that ExoBEM's condensing "
+        "heat exchanger holds. The latent energy agrees because over time both remove the crew's moisture, but the "
+        "moisture state does not: the engine's lower dew point overstates the margin of the coldest inside surface by "
+        f"{hu_t['margin_min_K'] - hu_p['margin_min_K']:.1f} K. Neither code predicts condensation for this well-insulated "
+        "habitat, and neither models condensation, frost or moisture storage in the envelope, so condensation risk "
+        "should not be judged from ideal-loads results.")
 
     m.heading("PV cell temperature in vacuum", 2, label="pvver")
     h, ea = PV["PV_H"], PV["PV_E"]
     m.para(
-        "The PV hook was checked against its own definition. Two equivalent one-diode modules in Decoupled mode, one "
-        "horizontal and one facing east, were placed on detached shading surfaces of the lunar module case, and the "
-        "residual of Eq. (@eq:pvcell) was evaluated at every time step from the engine's outputs (cell temperature, "
-        "plane-of-array irradiance, efficiency) and the sky and regolith temperatures (Table @tab:pvver). An input with "
-        "the dynamic cell model and a battery outside a zone stops with the two expected severe errors.")
-    rows = [
-        ["Horizontal", f"{h['residual_p99_W_m2']:.3f}", f"{h['steps_over_1W']} of {h['steps']} ({h['of_which_below_30W']} below the 30 W/m² insolation threshold)",
-         f"{h['Tcell_sunlit_max_K']:.0f}", f"{h['Tcell_min_K']:.0f}"],
-        ["East-facing", f"{ea['residual_p99_W_m2']:.3f}", f"{ea['steps_over_1W']} of {ea['steps']} (efficiency loop exits after one pass)",
-         f"{ea['Tcell_sunlit_max_K']:.0f}", f"{ea['Tcell_min_K']:.0f}"],
-    ]
-    m.table(["Module", "Residual, 99th percentile (W/m²)", "Steps with residual > 1 W/m²", "Max cell T (K)", "Min cell T (K)"], rows,
-            "Energy-balance residual of the planetary PV cell temperature (lunar equator, two lunations).",
-            col_widths_cm=[2.4, 3.0, 6.2, 2.2, 2.2], font_size=8, label="pvver")
+        "Two one-diode modules (horizontal and east-facing) on detached shading surfaces of the lunar module case were "
+        "checked against Eq. (@eq:pvcell) at every step: a check of numerical closure, not a comparison with measured "
+        f"module temperatures. The 99th-percentile residual is {h['residual_p99_W_m2']:.3f} W/m² (horizontal) and "
+        f"{ea['residual_p99_W_m2']:.3f} W/m² (east); larger residuals occur only below the engine's 30 W/m² insolation "
+        f"threshold or when its efficiency loop exits after one pass. Sunlit cells reach {h['Tcell_sunlit_max_K']:.0f}–"
+        f"{ea['Tcell_sunlit_max_K']:.0f} K and fall to {h['Tcell_min_K']:.0f} K at night, when a horizontal module faces the "
+        "2.7 K sky with its front and the 94 K regolith with its back, so that T⁴ ≈ T_{g}⁴/2.")
+
+
+def sensitivity(m):
+    m.heading("Sensitivity to uncertain planetary inputs", 2, label="sens")
+    pm = RB["params"]
+    lab = {"regolith_albedo_0.07": "Regolith albedo 0.07 / 0.17 (0.12)", "regolith_emissivity_0.90": "Regolith emissivity 0.90 / 0.99 (0.95)",
+           "horizon_5deg": "Horizon elevation 5° (0°)", "shell_solar_abs_0.3": "Beta-cloth solar absorptance 0.3 / 0.5 (0.4)",
+           "shell_emissivity_0.80": "Beta-cloth emissivity 0.80 (0.90)", "mli_R_-25pct": "MLI resistance −25% / +25%",
+           "thermal_inertia_250": "Regolith thermal inertia 250 / 450 (350 SI)", "regolith_albedo_0.10": "Regolith albedo 0.10 / 0.18 (0.14)",
+           "dust_tau_0.3": "Dust optical depth 0.3 / 1.5 (seasonal)", "wind_1": "Mean wind 1 / 6 m/s (3.2)"}
+    pair = {"regolith_albedo_0.07": "regolith_albedo_0.17", "regolith_emissivity_0.90": "regolith_emissivity_0.99",
+            "shell_solar_abs_0.3": "shell_solar_abs_0.5", "mli_R_-25pct": "mli_R_+25pct", "thermal_inertia_250": "thermal_inertia_450",
+            "regolith_albedo_0.10": "regolith_albedo_0.18", "dust_tau_0.3": "dust_tau_1.5", "wind_1": "wind_6"}
+    rows = []
+    for body, title in (("moon", "Lunar habitat (MLI shell)"), ("mars", "Mars regolith module (1 m cover)")):
+        for k, label in lab.items():
+            if k not in pm[body]:
+                continue
+            v = f"{pm[body][k]['vs_base_pct']:+.1f}%"
+            if k in pair and pair[k] in pm[body]:
+                v += f" / {pm[body][pair[k]]['vs_base_pct']:+.1f}%"
+            rows.append([title, label, v])
+    m.table(["Case", "Input changed (base)", "Change in cooling energy"], rows,
+            "One-at-a-time sensitivity of the cooling energy (internal generator; lunar habitat days 4–30, Mars module "
+            "days 16–31).", col_widths_cm=[4.2, 7.0, 4.8], font_size=7.5, label="sens")
+    w = MC["sensitivity"]["wind"]
     m.para(
-        "Sunlit cells reach 336–359 K, as expected for a module that can only radiate, and fall to 79 K at night. The few "
-        "larger residuals are at the edges of daylight, where the engine skips the efficiency iteration below 30 W/m² "
-        "or exits it after one pass; they carry no energy of consequence.")
+        "Code-to-code differences of a fraction of a percent are not the uncertainty of a prediction. Table @tab:sens "
+        "varies the least certain inputs. For the lunar habitat the MLI resistance dominates and the beta cloth's "
+        "optical properties follow, while regolith properties and a modest horizon barely change the load, because "
+        "internal gains dominate and the shell sees the regolith only through its floor and lower walls. For the Mars "
+        "module the dust optical depth dominates; regolith thermal inertia and albedo matter at the half-percent level, "
+        "and wind hardly at all, because the regolith cover isolates the module from surface convection. Exposed Martian "
+        f"surfaces are more sensitive: on a horizontal facet h rises from {w[0][1]:.2f} to {w[-1][1]:.2f} W/(m²K) as wind "
+        "goes from 0 to 10 m/s and changes by about ±7% for ±100 Pa of pressure, a correction to a radiation-dominated "
+        "balance. Several of these sensitivities exceed the code-to-code differences, so design studies should treat "
+        "such inputs as ranges.")
 
 
 # =========================================================================== discussion
-def tool_comparison(m):
-    """Table comparing the two tools (level-2)."""
-    m.heading("Re-implementation or engine modification?", 2, label="compare")
-    rows = [
-        ["Basis", "Re-implementation of the EnergyPlus heat-balance method", f"Fork of the EnergyPlus v{F['base_version']} engine"],
-        ["Code", f"About {F['exobem_python_lines']:,} lines of Python (NumPy, SciPy); pip package",
-         f"{KLOC:,.0f} thousand lines of C++ reused; {DIFF['insertions']:,} added"],
-        ["Conduction and solution", "Finite volumes on stretched grids, optional curved shells; surfaces and air solved simultaneously",
-         "EnergyPlus CTF or CondFD (planar layers); iterative surface and air balances"],
-        ["Scope", "Single zone, ideal loads, cabin vapour balance and condensation check; radiator, heat pump, PV, "
-         "batteries, regenerative fuel cells and fission as post-processors",
-         "All engine features that do not need outdoor air: multi-zone, HVAC and plant, controls, EMS, PV, batteries, "
-         "outputs; radiator component planned"],
-        ["Weather", "Writes and reads PWF files; internal environment models", "Reads PWF files (no EPW needed) or runs a C++ port of the models"],
-        ["Time base", "Sol clock on Mars; Earth clock on the Moon", "Earth clock on both (sol clock planned)"],
-        ["Input", "Python objects or JSON", "Standard IDF or epJSON plus Site:PlanetaryBody"],
-        ["Earth verification", "ASHRAE 140 opaque cases vs EnergyPlus 23.2: annual loads within 0.7%",
-         f"Bit-for-bit identical to v{F['base_version']} on {N_EARTH} files; {UT['tests']:,} unit tests pass"],
-        ["Planetary verification", "Mars24, Diviner, Appelbaum–Flood, MEDA reference data; NASA envelope analysis",
-         f"JPL Horizons, Diviner, closed-form boundary balances, NIST CO2 properties; code-to-code against ExoBEM within {abs(MARS_DIFF):.1f}%"],
-        ["Run time", f"Regolith module: {RT['python_moon']} s (Moon, {RT['moon_days']} d); NASA-class habitat: {RT['habitat_python']:.0f} s (30 d)",
-         f"Regolith module (CondFD): {RT['moon']} s; NASA-class habitat (CTF): {RT['habitat_cpp']:.1f} s"],
-        ["Best use", "Early design, parametric studies, power sizing, teaching, independent reference",
-         "Detailed design with EnergyPlus workflows, multi-zone habitats and systems"],
-    ]
-    m.table(["Aspect", "ExoBEM (Python)", "Thermonaut (C++)"], rows,
-            "The two tools compared. Run times are for 3-minute time steps on the same computer, single thread; the "
-            "regolith-module Python time is for ExoBEM v0.1.",
-            col_widths_cm=[3.0, 6.4, 6.6], font_size=7.5, label="compare")
+def discussion(m):
+    m.heading("What the planetary mode can be used for", 2, label="domain")
     m.para(
-        "Table @tab:compare compares the two routes. The re-implementation was the faster way to get the physics "
-        "right: the planetary models of both tools share their equations, which ExoBEM had checked against reference "
-        "data, but no code, and having a second implementation made it possible to find the start-up problem and the "
-        "humidity convention, which a single code would have hidden. The engine fork is the way to use that physics in "
-        "practice. It inherits multi-zone air balances, HVAC and plant loops, controls, electric systems and reporting, "
-        "and it runs the habitat cases faster than the Python code. The shared weather format lets both tools run the "
-        "same site, so a design can move from ExoBEM to Thermonaut without re-deriving its environment. The two are "
-        "therefore complementary rather than competing, and neither needs the other: ExoBEM is a fast stand-alone tool "
-        "for early design, Thermonaut the engine for detailed design with EnergyPlus workflows.")
+        "The current version supports envelope, load and power studies of sealed, windowless habitats at equatorial and "
+        "mid-latitude lunar sites and on Mars, with prescribed set-points, ideal loads, scheduled internal gains, PV and "
+        "batteries, using any EnergyPlus zone, schedule, EMS and output feature that does not need outdoor air. A user "
+        "can compare envelopes, regolith shields, set-points, gain schedules and PV and storage sizes, and obtain the "
+        "loads that the thermal control system must handle. A user cannot yet design the heat-rejection loop or "
+        "radiators, judge condensation risk, model windows, size equipment with design days or model polar terrain, and "
+        "should treat results as verified computations of a model that has not been validated against a real habitat. "
+        "That validation needs thermal-vacuum tests of a habitat-scale article.")
 
-
-def limitations_core(m, title="Limitations"):
-    """Limitations of Thermonaut M2d (level-2)."""
-    m.heading(title, 2, label="limcore")
+    m.heading("Limitations", 2, label="limcore")
     m.bullets([
-        "**Earth clock on Mars.** Hours are 3600 s, so the Martian day drifts by about 40 minutes per Earth day against the clock. Physics is right, but schedules cannot follow local solar time.",
-        "**Windows and radiators.** Fenestration and a space-radiator plant component are not yet available; heat rejection is represented by ideal loads, and planetary design days and sizing are refused.",
-        "**Humidity control.** The ideal-loads system dries the cabin below the humidistat limit (Section @sec:habver); until a planetary condensing-heat-exchanger component is available, condensation risk on cold surfaces should be assessed with a real coil model.",
-        "**Power.** PV and batteries are planetary; dust soiling of arrays, regenerative fuel cells and fission power are not. Module emissivity is a constant 0.85 on both faces: its dependence on temperature and its change as dust accumulates on Martian arrays are not modelled.",
-        "**Cabin gas.** The zone moisture balance uses moist-air psychrometrics at cabin pressure; a gas-mixture block for other cabin atmospheres is planned.",
-        "**Gravity.** Body gravity is used in the new convection correlations only; window gaps, airflow networks and stack effects are refused or still use 9.81 m/s².",
-        "**Thin metal layers.** CondFD cannot resolve millimetre aluminium shells at minute time steps, so they must be lumped or modelled with CTF.",
-        "**Verification scope.** Off-Earth, the engine is checked against an independent ephemeris, orbital temperature data, closed-form boundary balances and tabulated gas properties, and code-to-code against ExoBEM; no measurement of a whole habitat exists. Thermal-vacuum test data for a habitat-scale article, of the kind used to correlate spacecraft thermal models, would be the next benchmark; none is public today.",
+        "**Earth clock on Mars.** Hours are 3600 s, so the Martian day drifts by about 40 min per Earth day against the clock; the physics is right, but schedules cannot follow local solar time.",
+        "**Systems.** No space-radiator component, condensing heat exchanger, windows or planetary design days; heat rejection is represented by ideal loads.",
+        "**Cabin gas and moisture.** Moist-air psychrometrics at cabin pressure (errors up to 1.4% at 34% O2); no envelope condensation or frost.",
+        "**Terrain and radiation.** Uniform horizon, (1 − cos β)/2 ground view, no Earthshine; polar and shadowed terrain outside the verified domain.",
+        "**Numerics and controls.** Exterior long-wave coefficients are linearized about the previous step's surface temperature, as on Earth, which matters most in the step when sunlight reaches a wall; controls that read outdoor conditions see the Martian air or, on the Moon, the regolith skin temperature.",
+        "**PV.** Emissivity 0.85 on both faces, free-standing modules, no soiling, temperature dependence of optics or array self-shading.",
+        "**Evidence.** Code-to-code results come from a second implementation of the same model by the same authors; independent checks are at component level; there is no system-level validation, and no independent group has yet reproduced the cases.",
     ])
 
+    m.heading("Tracking EnergyPlus releases and upstreaming", 2, label="releases")
+    m.para(
+        "Every change is applied by an idempotent patch script that finds a short, unique anchor in a stock source file "
+        "and inserts a hook; a script stops with an error, rather than patching the wrong place, if its anchor has moved. "
+        "The scripts have so far been applied only to v26.2.0, so the procedure for a new release is proposed rather "
+        "than demonstrated: check out the release tag, run the scripts in order, update moved anchors, review the "
+        "refusal list against new object types, and rerun the Earth regression against an unmodified build of the same "
+        f"release, the unit tests and the planetary tests. Because the {DIFF['hook_lines_existing_files']} lines of hooks "
+        "sit at a few interfaces rather than inside the solvers, most releases should need only anchor updates, and "
+        "upstream fixes arrive with each rebase. Releases are tagged by milestone (M2e for this paper). Because every "
+        "change is gated on the planetary object and Earth results are unchanged in the tested files, the planetary "
+        "mode could be offered upstream as an optional feature through the EnergyPlus new-feature-proposal process. The "
+        "intention is to propose it once the sol clock and the space-radiator component of milestone M3 complete the "
+        "changes to the time base and plant, so that the proposal covers a stable interface.")
 
-def roadmap_core(m):
-    """Roadmap and upstreaming (level-2)."""
     m.heading("Roadmap", 2, label="roadmap")
     m.para(
-        "The audit provides the work list for the next milestone. M3 introduces a sol clock for Mars by making the "
-        f"hour length a run-time variable: the audit identified the four lines that set the time-step lengths, the "
-        f"{AF['rSecsInHour_physical']} physical uses of the hour constant that must follow it and the "
-        f"{AF['rSecsInHour_units']} unit conversions that must not, and the change to the CTF generator's hour-based "
-        "units. M3 also adds a cabin gas-mixture block for psychrometrics, body gravity in every buoyancy model, "
-        "planetary design days and sizing, a space-radiator plant component modelled on the fluid cooler with a surface "
-        "link like the flat-plate solar collector, a planetary condensing heat exchanger that holds the cabin at its "
-        "humidity limit, dust soiling of PV, and windows with vacuum-compatible solvers.")
-    m.heading("Tracking EnergyPlus releases", 2, label="releases")
-    m.para(
-        "A fork is only useful if it can follow the engine it forks. Every change in Thermonaut is applied by an "
-        "idempotent patch script that finds a short, unique anchor in a stock source file and inserts a hook, plus the "
-        "new PlanetaryBody module and the input object. Moving to a new EnergyPlus release means checking out the "
-        "release tag, running the scripts in order (each stops with an error if its anchor has moved, instead of "
-        "patching the wrong place), updating the anchors that moved, and rerunning the Earth regression against an "
-        "unmodified build of the same release, the unit-test suite and the planetary checks of Section @sec:verifsec. "
-        f"Because the {DIFF['hook_lines_existing_files']} lines of hooks sit at a few interfaces (weather arrays, sun "
-        "direction, exterior and interior coefficients, CondFD start-up, PV cell temperature, input validation) rather "
-        "than inside the solvers, most releases should need only anchor updates; a release that restructures one of "
-        "those interfaces needs that hook rewritten. Because every change is gated on the planetary object and Earth "
-        "results are unchanged, the planetary mode could also be offered upstream as an optional feature, which would "
-        "end the need for a fork.")
-
-
-# =========================================================================== appendix
-def appendix_tutorial(m):
-    """Appendix A: building Thermonaut and running the NASA-class habitat."""
-    m.heading("Appendix A. Using Thermonaut: a worked example", 1, numbered=False)
-    m.para(
-        "The repository contains a step-by-step tutorial (planetary/TUTORIAL.md) that builds the engine and runs the "
-        "NASA-class lunar habitat of Section @sec:habver. Its main steps are:", indent=False)
-    m.para("**1. Build** (Windows, Visual Studio 2022 Build Tools; on Linux and macOS the standard EnergyPlus CMake build):",
-           align="left")
-    for line in ("git clone https://github.com/TensorBuildLab/Thermonaut.git", "cd Thermonaut",
-                 "planetary\\tools\\build.bat configure 8"):
-        m.para(line, align="left", size=8.5, space_after=0)
-    m.para("", space_after=4)
-    m.para("**2. Write a planetary weather file** with ExoBEM (lunar equator, 31 days, 3-minute records):", align="left")
-    for line in ("python -m pip install \"exobem[plot] @ git+https://github.com/TensorBuildLab/ExoBEM\"",
-                 "exobem weather --body moon --lat 0.674 --lon 23.473 --start 2030-01-01T00:00:00 --days 31 "
-                 "--timestep 180 -o lunar_habitat.pwf"):
-        m.para(line, align="left", size=8.5, space_after=0)
-    m.para("", space_after=4)
-    m.para("**3. Add the planetary object** to an ordinary input file (the habitat file is written by "
-           "planetary/cases/make_habitat_case.py from ExoBEM's model):", align="left")
-    for line in ("Site:PlanetaryBody,",
-                 "  lunar_habitat,         !- Name",
-                 "  Moon,                  !- Body",
-                 "  EarthClock,            !- Clock",
-                 "  2030,                  !- Reference Year",
-                 "  autocalculate,         !- Gravity {m/s2}",
-                 "  56500,                 !- Cabin Pressure {Pa}",
-                 "  0.34,                  !- Cabin Oxygen Mole Fraction",
-                 "  0.15,                  !- Cabin Air Velocity {m/s}",
-                 "  5.25,                  !- Convection Vertical Length Scale {m}",
-                 "  0.0,                   !- Horizon Elevation Angle {deg}",
-                 "  autocalculate, autocalculate, autocalculate, autocalculate, 3.0,  !- regolith; deep depth {m}",
-                 "  710, Climatology, 0.5, 0, 0, 0, 3.2, 2.0,   !- Mars-only fields",
-                 "  lunar_habitat.pwf;     !- Planetary Weather File Name"):
-        m.para(line, align="left", size=8.0, space_after=0)
-    m.para("", space_after=4)
-    m.para(
-        "The rest is standard input: Material, Material:NoMass (MLI) and Construction for the envelope; "
-        "BuildingSurface:Detailed with an Outdoors floor for a habitat on legs; InternalMass for racks; OtherEquipment "
-        "with latent and lost fractions for crew and equipment; ZoneControl:Thermostat, ZoneControl:Humidistat and "
-        "ZoneHVAC:IdealLoadsAirSystem; and, if wanted, Generator:Photovoltaic with the one-diode model in Decoupled "
-        "mode and a battery placed in the zone. Infiltration, ventilation or outdoor-air objects stop the run.",
-        align="left")
-    m.para("**4. Run** (no EPW file is given):", align="left")
-    m.para("build\\Products\\energyplus.exe -d out lunar_habitat.idf", align="left", size=8.5)
-    m.para(
-        "The error file reports the planetary mode, for example \"planetary weather file lunar_habitat.pwf (14880 "
-        "records of 180 s); calendar EPW written to out\\planetary_calendar.epw\" and \"deep regolith −14.9 C\". All "
-        "standard outputs are available, plus Site Planetary Ground Surface Temperature, Deep Ground Temperature, Ambient "
-        "Pressure, Downwelling Longwave Radiation, Sun Distance, Solar Longitude and Dust Optical Depth.", align="left")
-    m.para("**5. Compare with ExoBEM:** make_habitat_case.py also runs ExoBEM on the same weather file and writes "
-           "comparison.json with the numbers of Table @tab:habver.", align="left")
+        "M3 introduces a sol clock by making the hour length a run-time variable (the audit identified the four lines "
+        f"that set the time-step lengths, the {AF['rSecsInHour_physical']} physical uses of the hour constant that must "
+        f"follow it and the {AF['rSecsInHour_units']} unit conversions that must not), a cabin gas-mixture block for "
+        "psychrometrics, body gravity in every buoyancy model, planetary design days and sizing, a space-radiator plant "
+        "component, a planetary condensing heat exchanger that holds the cabin at its humidity limit, terrain horizons, "
+        "PV soiling, and windows with vacuum-compatible solvers.")

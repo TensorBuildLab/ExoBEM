@@ -66,6 +66,8 @@ class Manuscript:
         self.eq_no = 0
         self.fig_no = 0
         self.tab_no = 0
+        self.tab_prefix = ""   # e.g. "S5." in a supplement (numbering restarts per section)
+        self.fig_prefix = ""
         self.refs = {}         # key -> formatted reference string
         self.cite_order = []   # keys in order of first citation
         self._add_page_numbers()
@@ -212,7 +214,7 @@ class Manuscript:
         c = self.doc.add_paragraph()
         c.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         c.paragraph_format.line_spacing = 1.15
-        r = c.add_run(f"Fig. {self.fig_no}. ")
+        r = c.add_run(f"Fig. {self.fig_prefix}{self.fig_no}. ")
         r.bold = True
         r.font.size = Pt(9.5)
         self._runs(c, caption, size=9.5)
@@ -224,7 +226,7 @@ class Manuscript:
         c = self.doc.add_paragraph()
         c.paragraph_format.keep_with_next = True
         c.paragraph_format.line_spacing = 1.15
-        r = c.add_run(f"Table {self.tab_no}. ")
+        r = c.add_run(f"Table {self.tab_prefix}{self.tab_no}. ")
         r.bold = True
         r.font.size = Pt(9.5)
         self._runs(c, caption, size=9.5)

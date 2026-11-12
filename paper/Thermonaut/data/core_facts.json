@@ -1,12 +1,12 @@
 {
- "source": "Thermonaut M2d, https://github.com/TensorBuildLab/Thermonaut, branch thermonaut; planetary/VERIFICATION.md, planetary/DESIGN.md, planetary/audit/*.md",
+ "source": "Thermonaut M2e, https://github.com/TensorBuildLab/Thermonaut, branch thermonaut; planetary/VERIFICATION.md, planetary/DESIGN.md, planetary/audit/*.md",
  "base_version": "26.2.0",
  "source_lines_cc_hh": 720886,
  "diff": {
   "files": 18,
-  "insertions": 2011,
+  "insertions": 2178,
   "deletions": 13,
-  "new_module_lines": 1613,
+  "new_module_lines": 1780,
   "idd_lines": 157,
   "hook_lines_existing_files": 241,
   "existing_files_touched": 15

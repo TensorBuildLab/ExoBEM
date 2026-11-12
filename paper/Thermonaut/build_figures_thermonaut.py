@@ -223,7 +223,7 @@ def fig_response():
 
 
 def fig_habitats():
-    """Geometry of the two verification habitats and the NASA-class habitat comparison."""
+    """Geometry of the two verification habitats and the NASA-informed habitat comparison."""
     import sys
     sys.path.insert(0, str(HERE.parents[1]))
     from exobem.cases import artemis_surface_habitat, lunar_habitat
@@ -233,7 +233,7 @@ def fig_habitats():
     ax1 = fig.add_subplot(2, 2, 1, projection="3d")
     ax2 = fig.add_subplot(2, 2, 2, projection="3d")
     plot_geometry(lunar_habitat(), ax=ax1, title="(a) Regolith-shielded module", elev=24, azim=-60)
-    plot_geometry(artemis_surface_habitat(), ax=ax2, title="(b) NASA-class lunar habitat", elev=22, azim=-58)
+    plot_geometry(artemis_surface_habitat(), ax=ax2, title="(b) NASA-informed lunar habitat", elev=22, azim=-58)
     ax1.text2D(0.5, 0.95, "r 3 m, L 10 m, 1 m regolith over MLI;\nbottom facets rest on the regolith (hidden)",
                transform=ax1.transAxes, ha="center", va="top", fontsize=6.3, color=INK2)
     ax2.text2D(0.5, 0.95, "D 6.5 m, H 5.25 m, 174 m³, on legs;\nbeta cloth / MLI / aluminium",
@@ -263,7 +263,85 @@ def fig_habitats():
     save(fig, "core_fig5_habitats.png")
 
 
+def fig_startup():
+    """Start-up of a regolith-covered wall (lunar regolith-module shell), computed with the equations of the engine:
+    steady k-constant profile, the implicit node-network response g to a unit inside step over the warm-up period, and
+    the states produced by the default start, the full correction (M2c) and the warm-up-aware correction (M2d)."""
+    # shell of the lunar regolith module, outside -> inside (moon_equator.idf): regolith 1 m, beta cloth 1 mm,
+    # MLI (R 15 m2K/W, no mass), interior panel with the aluminium heat capacity lumped (10 mm)
+    layers = [("regolith", 1.0, 0.0034, 1800.0 * 205.107, 60), ("beta cloth", 0.001, 0.15, 1400.0 * 900.0, 2),
+              ("MLI", None, 15.0, 0.0, 1), ("panel", 0.01, 0.2, 2017.92 * 1200.0, 4)]
+    x, G, Cn, Rcum = [0.0], [], [0.0], [0.0]
+    for name, th, k, rc, n in layers:
+        for _ in range(n):
+            if th is None:                    # no-mass layer: one resistance, negligible capacity
+                g, c, dx = 1.0 / k, 1e-5, 0.0
+            else:
+                dx = th / n
+                g, c = k / dx, rc * dx
+            G.append(g)
+            Cn[-1] += 0.5 * c
+            Cn.append(0.5 * c)
+            Rcum.append(Rcum[-1] + 1.0 / g)
+            x.append(x[-1] + dx)
+    x, G, Cn, R = np.array(x), np.array(G), np.array(Cn), np.array(Rcum)
+    depth = x[-1] - x                          # distance from the inside face
+    To, Tin0, Tin = -25.0, 23.0, 31.2          # mean outer face; initial and real inside-face temperature (Moon case)
+    p_old = To + (Tin0 - To) * R / R[-1]
+    p_new = To + (Tin - To) * R / R[-1]
+    # unit step at the inside face, outer node fixed, implicit Euler hourly over 6 warm-up days
+    N = len(x)
+    g = np.zeros(N)
+    g[-1] = 1.0
+    dt, steps = 3600.0, 6 * 24
+    A = np.zeros((N - 2, N - 2))
+    for i in range(1, N - 1):
+        A[i - 1, i - 1] = Cn[i] / dt + G[i - 1] + G[i]
+        if i > 1:
+            A[i - 1, i - 2] = -G[i - 1]
+        if i < N - 2:
+            A[i - 1, i] = -G[i]
+    for _ in range(steps):
+        b = Cn[1:-1] / dt * g[1:-1]
+        b[-1] += G[N - 2] * g[-1]
+        g[1:-1] = np.linalg.solve(A, b)
+    d = p_new - p_old
+    after_warmup = p_old + d * g
+    states = [("EnergyPlus default (23 °C)", np.full(N, Tin0), MUTED, (0, (1, 1.5))),
+              ("steady profile, initial inside T", p_old, C[0], (0, (4, 2))),
+              ("after warm-up", after_warmup, C[3], "-"),
+              ("full correction (M2c)", after_warmup + d, C[7], "-"),
+              ("warm-up-aware correction (M2d)", after_warmup + d * (1 - g), C[2], "-")]
+    fig, axs = plt.subplots(1, 2, figsize=(7.4, 2.9))
+    ax = axs[0]
+    for lab, T, c, ls in states:
+        ax.plot(depth * 100, T, color=c, ls=ls, lw=1.5, label=lab)
+    ax.set_xscale("symlog", linthresh=1.0)
+    ax.set_xlim(0, 102)
+    ax.set_xlabel("Distance from the inside face (cm)")
+    ax.set_ylabel("Temperature (°C)")
+    ax.set_title("(a) Profiles through the shell")
+    ax.legend(fontsize=6.2, loc="lower left")
+    ax = axs[1]
+    for lab, T, c, ls in states[1:]:
+        ax.plot(depth * 100, T - p_new, color=c, ls=ls, lw=1.5)
+    ax.axhline(0, color=INK2, lw=0.8)
+    ax.set_xscale("symlog", linthresh=1.0)
+    ax.set_xlim(0, 102)
+    ax.set_xlabel("Distance from the inside face (cm)")
+    ax.set_ylabel("Departure from the target profile (K)")
+    ax.set_title("(b) Departure from the steady target")
+    for a in axs:
+        a.axvline(1.0, color=MUTED, lw=0.8, ls=":")
+        a.text(1.08, 0.5, "MLI", transform=a.get_xaxis_transform(), fontsize=6.5, color=INK2, rotation=90, va="center")
+    axs[1].text(0.25, -3.6, "panel", fontsize=6.5, color=INK2, ha="center")
+    axs[1].text(40, 2.0, "regolith", fontsize=6.5, color=INK2, ha="center")
+    fig.tight_layout()
+    save(fig, "core_fig6_startup.png")
+
+
 if __name__ == "__main__":
+    fig_startup()
     fig_habitats()
     fig_hooks()
     fig_audit()

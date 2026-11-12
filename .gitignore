@@ -14,3 +14,7 @@ studies/fig_log.txt
 # personal working copies and Word lock files
 paper/**/*working folder*/
 ~$*
+
+# JBPS submission files that carry author details (built locally, not published)
+paper/Thermonaut/submission_JBPS/Thermonaut_title_page.docx
+paper/Thermonaut/submission_JBPS/Thermonaut_cover_letter.docx
